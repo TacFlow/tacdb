@@ -103,14 +103,20 @@ func recoveryDB(t *testing.T, pages uint64, walBytes int64) vfs.FS {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rng := rand.New(rand.NewPCG(1, uint64(pages)))
-	const perGroup = 64
+	// The groups write pages of a pool of the same size over any database,
+	// spread over all of it: the log replays as many distinct pages over
+	// 1 GiB as over 100 GiB, so only the size of the database differs.
+	rng := rand.New(rand.NewPCG(1, 1))
+	const perGroup, pool = 64, 1 << 16
+	stride := (pages - 4) / pool
 	for c, written := uint64(1), int64(0); written < walBytes; c++ {
 		ids := map[page.ID]bool{}
 		for len(ids) < perGroup {
-			if id := page.ID(3 + rng.Uint64N(pages-3)); !page.IsBitmapPage(id) {
-				ids[id] = true
+			id := page.ID(3 + rng.Uint64N(pool)*stride)
+			if page.IsBitmapPage(id) {
+				id++
 			}
+			ids[id] = true
 		}
 		sorted := slices.Sorted(func(yield func(page.ID) bool) {
 			for id := range ids {
