@@ -95,6 +95,43 @@ func TestTreeAgainstMap(t *testing.T) {
 	}
 }
 
+// SetAll of sorted batches, over new and existing keys of every height,
+// matches the model, and older trees never change.
+func TestSetAllAgainstMap(t *testing.T) {
+	r := rand.New(rand.NewPCG(2, 2))
+	var tr Tree[val]
+	model := map[uint64]val{}
+	var olds []Tree[val]
+	var oldModels []map[uint64]val
+	for i := 0; i < 3000; i++ {
+		batch := map[uint64]val{}
+		for range r.IntN(70) {
+			k := randomKey(r)
+			if len(model) > 0 && r.IntN(3) == 0 {
+				for mk := range model {
+					k = mk
+					break
+				}
+			}
+			batch[k] = val(r.Uint64N(1000))
+		}
+		keys := slices.Sorted(maps.Keys(batch))
+		vals := make([]val, len(keys))
+		for j, k := range keys {
+			vals[j] = batch[k]
+			model[k] = batch[k]
+		}
+		tr = tr.SetAll(keys, vals)
+		if i%300 == 0 {
+			olds, oldModels = append(olds, tr), append(oldModels, maps.Clone(model))
+		}
+	}
+	checkTree(t, tr, model)
+	for i := range olds {
+		checkTree(t, olds[i], oldModels[i])
+	}
+}
+
 // Pruning with a small budget, call after call, ends with exactly the
 // values above the limit, and each call keeps everything above it.
 func TestPrune(t *testing.T) {

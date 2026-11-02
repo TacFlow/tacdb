@@ -47,7 +47,7 @@ func workload(db *DB, mode Durability) *run {
 			delete(next, d)
 		}
 		for range 2 {
-			if _, err := tx.NextID(ctx, kindNode); err != nil {
+			if _, err := tx.NextID(ctx, KindNode); err != nil {
 				tx.Rollback()
 				return r
 			}

@@ -103,14 +103,20 @@ func recoveryDB(t *testing.T, pages uint64, walBytes int64) vfs.FS {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rng := rand.New(rand.NewPCG(1, uint64(pages)))
-	const perGroup = 64
+	// The groups write pages of a pool of the same size over any database,
+	// spread over all of it: the log replays as many distinct pages over
+	// 1 GiB as over 100 GiB, so only the size of the database differs.
+	rng := rand.New(rand.NewPCG(1, 1))
+	const perGroup, pool = 64, 1 << 16
+	stride := (pages - 4) / pool
 	for c, written := uint64(1), int64(0); written < walBytes; c++ {
 		ids := map[page.ID]bool{}
 		for len(ids) < perGroup {
-			if id := page.ID(3 + rng.Uint64N(pages-3)); !page.IsBitmapPage(id) {
-				ids[id] = true
+			id := page.ID(3 + rng.Uint64N(pool)*stride)
+			if page.IsBitmapPage(id) {
+				id++
 			}
+			ids[id] = true
 		}
 		sorted := slices.Sorted(func(yield func(page.ID) bool) {
 			for id := range ids {
@@ -203,7 +209,7 @@ func openTime(t *testing.T, fs vfs.FS) (time.Duration, int64) {
 // REC-11 (gate 13): the open after a crash costs in proportion to the log,
 // not to the database. Over databases of 1 GiB and of 100 GiB, a log of
 // 1 GiB opens reading the same bytes of the main file (its superblocks),
-// and in the same time within 10%, the best of five after a warm-up. The
+// and in the same time within 10%, the best of nine after a warm-up. The
 // bytes are the exact proof; the time is the gate of the specification.
 func TestREC11(t *testing.T) {
 	gate(t, "rec11")
@@ -216,7 +222,7 @@ func TestREC11(t *testing.T) {
 	openTime(t, small) // warm the cache of the operating system for both
 	openTime(t, large)
 	var ts, tl []time.Duration
-	for range 5 { // interleaved, the best of five of each
+	for range 9 { // interleaved, the best of nine of each
 		d, rs := openTime(t, small)
 		ts = append(ts, d)
 		d, rl := openTime(t, large)

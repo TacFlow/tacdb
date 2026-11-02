@@ -44,7 +44,7 @@ func TestStress(t *testing.T) {
 							continue
 						}
 						for j := 0; j < rng.Intn(4); j++ {
-							if id, err := tx.NextID(c, kindNode); err == nil {
+							if id, err := tx.NextID(c, KindNode); err == nil {
 								if _, dup := seen.LoadOrStore(id, true); dup {
 									t.Errorf("identifier %d handed out twice", id)
 								}
@@ -96,11 +96,14 @@ func TestStress(t *testing.T) {
 			if st.Used[govern.Overlay] != 0 || st.Used[govern.Sealed] != 0 {
 				t.Fatalf("governor leftovers: overlay %d sealed %d", st.Used[govern.Overlay], st.Used[govern.Sealed])
 			}
+			db.mu.Lock() // a checkpoint of the maintainer forgets tokens
 			for s, v := range db.tokens {
 				if v.status != Durable {
+					db.mu.Unlock()
 					t.Fatalf("token %x status %v after Flush", s, v)
 				}
 			}
+			db.mu.Unlock()
 			db.Close()
 			db = open(t, db.fs, o)
 			structural(t, db)

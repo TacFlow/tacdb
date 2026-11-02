@@ -278,7 +278,7 @@ func TestIdentifiers(t *testing.T) {
 	var last uint64
 	take := func(tx *WriteTx, n int) {
 		for i := 0; i < n; i++ {
-			id, err := tx.NextID(ctx, kindNode)
+			id, err := tx.NextID(ctx, KindNode)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -303,7 +303,7 @@ func TestIdentifiers(t *testing.T) {
 	if s.IDReservationSyncs > 2 {
 		t.Fatalf("%d dedicated Syncs for identifiers", s.IDReservationSyncs)
 	}
-	if size := db.ids.kinds[kindNode].size; size <= db.opts.IDReservationInitial {
+	if size := db.ids.kinds[KindNode].size; size <= db.opts.IDReservationInitial {
 		t.Fatalf("blocks did not grow under pressure: %d", size)
 	}
 	tx, _ = db.BeginWrite(ctx)

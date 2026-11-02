@@ -373,7 +373,7 @@ func TestWatermarksAcrossCheckpoints(t *testing.T) {
 				t.Fatal(err)
 			}
 			for i := 0; i < 100; i++ {
-				id, err := tx.NextID(ctx, kindNode)
+				id, err := tx.NextID(ctx, KindNode)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -399,7 +399,7 @@ func TestWatermarksAcrossCheckpoints(t *testing.T) {
 		db = open(t, fs, o)
 	}
 	tx, _ := db.BeginWrite(ctx)
-	if id, _ := tx.NextID(ctx, kindNode); id <= high {
+	if id, _ := tx.NextID(ctx, KindNode); id <= high {
 		t.Fatalf("after the last crash: %d, handed out up to %d", id, high)
 	}
 	tx.Rollback()
@@ -726,7 +726,7 @@ func TestWatermarkOfEarlierReservation(t *testing.T) {
 	db := open(t, fs, o)
 	tx, _ := db.BeginWrite(ctx)
 	for i := 0; i < 40; i++ { // past half of 1..64: 65..128 is requested
-		tx.NextID(ctx, kindNode)
+		tx.NextID(ctx, KindNode)
 	}
 	tx.Put(ctx, 0, []byte("a"), []byte("1"))
 	if _, err := tx.Commit(ctx); err != nil { // its Sync makes 65..128 durable
@@ -735,7 +735,7 @@ func TestWatermarkOfEarlierReservation(t *testing.T) {
 	tx, _ = db.BeginWrite(ctx)
 	var high uint64
 	for i := 0; i < 56; i++ { // up to 96, below the half of 65..128
-		high, _ = tx.NextID(ctx, kindNode)
+		high, _ = tx.NextID(ctx, KindNode)
 	}
 	tx.Rollback()
 	if err := db.Checkpoint(ctx); err != nil {
@@ -747,7 +747,7 @@ func TestWatermarkOfEarlierReservation(t *testing.T) {
 	defer db.Close()
 	tx, _ = db.BeginWrite(ctx)
 	defer tx.Rollback()
-	if id, _ := tx.NextID(ctx, kindNode); id <= high {
+	if id, _ := tx.NextID(ctx, KindNode); id <= high {
 		t.Fatalf("identifier %d handed out again (up to %d before the crash)", id, high)
 	}
 }

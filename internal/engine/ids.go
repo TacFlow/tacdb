@@ -12,8 +12,8 @@ import (
 
 // Kinds of identifiers (RESERVE_IDS, SPEC §9.1).
 const (
-	kindNode = 1
-	kindEdge = 2
+	KindNode = 1
+	KindEdge = 2
 )
 
 // idAlloc hands out node and edge identifiers in adaptive blocks (SPEC
@@ -46,14 +46,14 @@ type idBlock struct{ lo, hi uint64 }
 func (a *idAlloc) init(db *DB, nodeHWM, edgeHWM uint64) {
 	a.db = db
 	a.changed = make(chan struct{})
-	for kind, hwm := range map[int]uint64{kindNode: nodeHWM, kindEdge: edgeHWM} {
+	for kind, hwm := range map[int]uint64{KindNode: nodeHWM, KindEdge: edgeHWM} {
 		a.kinds[kind] = idKind{next: hwm + 1, limit: hwm, reserved: hwm, size: db.opts.IDReservationInitial}
 	}
 }
 
 func (a *idAlloc) next(ctx context.Context, kind int) (uint64, error) {
 	const op = "engine.NextID"
-	if kind != kindNode && kind != kindEdge {
+	if kind != KindNode && kind != KindEdge {
 		return 0, errs.Newf(errs.CodeInvalidArgument, op, "unknown identifier kind %d", kind)
 	}
 	a.mu.Lock()
