@@ -6,7 +6,7 @@ Policy (§25.1 and §28 of the specification): tacdb aims at functional and sema
 
 | Area | Policy (§28) | Status |
 |---|---|---|
-| Property/graph model | Parity, including absence/Null, lists/maps and edge IDs. | Values and codec ready (M1a); nodes, edges, labels, properties, adjacency and degrees ready (M3b); property indexes pending (M3c). |
+| Property/graph model | Parity, including absence/Null, lists/maps and edge IDs. | Values and codec ready (M1a); nodes, edges, labels, properties, adjacency and degrees ready (M3b); property indexes with uniqueness, truncated and hashed keys ready (M3c); online BuildIndex pending (M3d). |
 | Cypher dialect of the pinned revision | Parity on the inventoried features. | Pending (M4). |
 | FTS/BM25/fuzzy | Functional parity; deterministic scores across platforms. | Pending (M5). |
 | HNSW | Same capabilities and metrics; topology is not a binary identity. | Pending (M8). |
@@ -37,6 +37,7 @@ Policy (§25.1 and §28 of the specification): tacdb aims at functional and sema
 | D-004 | The graph methods of `Tx` take no context, as §6 declares them; they are bounded by `MaxWriteTxDuration` and `MaxReadTxAge`. `Commit` of a read transaction closes it and returns its snapshot with a zero token. Inside `View` and `Update`, `Commit` and `Rollback` fail with `INVALID_ARGUMENT`: the function owns the work, not the transaction; a call `fn` left running ends before the transaction does. `Close` with transactions open returns `BUSY`; a transaction that begins while `Close` checks fails with `SHUTTING_DOWN`. | §6 leaves these cases open. | `db_test.go` (`TestUpdate`, `TestTransactions`) |
 | D-005 | `EdgeCursor` reads the adjacency in batches of 64 entries, each one operation of its transaction that resumes after the last key it gave, and checks its transaction before each edge: after `Commit`, `Rollback` or an expired snapshot it fails at once (`TX_CLOSED`, `SNAPSHOT_EXPIRED`). Inside a write transaction it yields the edges that existed when it was opened and still exist when it reaches them, so writing during the walk never feeds it. Edges come grouped by direction (outgoing, then incoming) and type, in peer and edge order. | Without a live cursor in the engine, a resumable cursor keeps revocation cooperative (§10.1); the rule for writes does not depend on the batch size. | `internal/graph/graph_test.go` (`TestCursorBatches`, `TestCursorExpires`), `cursor_test.go` |
 | D-006 | The canonical dump writes one line per node, then per edge, in ID order: labels in insertion order, properties by name, values typed and exact (`1` is Int, `float(1)` Float; `-0`, infinities and NaN bits kept). | The dump of §25.1 compares content and keeps the bits of properties. | `internal/graph/graph_test.go` (`TestDumpValues`) |
+| D-007 | A seek on a property index applies expression semantics to the full value: equality finds Int 1 and Float 1.0 together, and never matches Null or NaN; a range only matches values of the family of its bounds (numbers are one family); `STARTS WITH` only matches strings. Hits come by value, then by entity ID. Indexes hold an entry for a stored Null, never for an absent property. | §12.2 fixes the keys and uniqueness, §15.2 the semantics of comparisons; ties need a stable order. | `internal/index/index_test.go` (`TestSeekAgainstScan`) |
 
 ## 3. Recorded divergences from R0
 

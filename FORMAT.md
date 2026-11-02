@@ -304,8 +304,8 @@ Implementation: `internal/catalog`. The State holds 19 roots; slots 19 to 31 are
 | 9 | Edges | `(edge u64, 0)` → edge record; `(edge u64, 1, property u32)` → Value (§13.3) |
 | 10–12 | StreamMeta, StreamEvents, StreamOffsets | later milestones |
 | 13 | Catalog | `(prefix u8, …)` → record (§13.1) |
-| 14, 15 | NodeProperty, EdgeProperty | property index entries (M3c) |
-| 16 | Stats | `(prefix u8, …)` → record or counter; prefix 2 holds degrees (§13.3) |
+| 14, 15 | NodeProperty, EdgeProperty | `(index u64, sortable value, entity u64)` → empty (§13.4) |
+| 16 | Stats | `(prefix u8, …)` → record or counter; prefix 1 holds index entry counts (§13.4), prefix 2 degrees (§13.3) |
 | 17 | Sessions | later milestones |
 | 18 | Maintenance | `(prefix u8, …)` → record (M3d) |
 
@@ -334,3 +334,30 @@ An edge has two adjacency entries: `(source, 0, type, target, edge)` and `(targe
 A degree counter is the Stats entry `(2, node u64, direction u8, type u32)` → count u64, never zero: the entry is removed when the count reaches zero. Direction 0 counts outgoing entries, 1 incoming entries and 2 self-loops; type 0 counts every type. The undirected degree is outgoing + incoming − self-loops, so a self-loop counts once. Counters change in the commit that changes the edges.
 
 The State's `nodeCount` and `edgeCount` are the live nodes and edges.
+
+### 13.4 Property indexes
+
+Implementation: `internal/index`.
+
+**Declarations.** An index is the Catalog record at key `(2, index u64)`, version 1, with the required fields `name` (String, a structural name), `entity` (Int: 0 nodes, 1 edges), `scope` (Int: the label or edge type identifier), `property` (Int: the property identifier), `kind` (Int: 0, a property index), `unique` (Bool), `state` (Int: 0 BUILDING, 1 ONLINE, 2 FAILED) and `prefixBytes` (Int, 16 to 989: the `IndexKeyPrefixBytes` the index was created with, which it keeps). Names are unique. Index identifiers count from 1 and are never reused: the largest one handed out is the Catalog record at key `(4, 1)`, version 1, field `hwm` (Int). Creating or dropping an index, or changing its state, raises `schemaEpoch` once per commit; entries and counters never do.
+
+**Entries.** Writers keep every BUILDING or ONLINE index. An entity in the scope of an index with its property has one entry in tree 14 (nodes) or 15 (edges): the index identifier u64 big-endian, the sortable form of the value, then the entity identifier u64 big-endian; the value of the entry is empty. An absent property has no entry; a stored Null has one. The entry count of an index is the Stats entry `(1, index u64)` → count u64 little-endian, never zero (removed at zero), changed in the same commit as the entries.
+
+**Sortable form.** A tag, then the value; the tags order the families, Null apart:
+
+| Tag | Family | Value |
+|---|---|---|
+| `0x01` | Null | nothing |
+| `0x10` | Bool | u8, 0 or 1 |
+| `0x20` | Int | u64 big-endian of the value with its sign bit flipped |
+| `0x21` | Float, finite | u64 big-endian of the bits: all flipped if negative, the sign bit flipped otherwise; `-0` is written as `+0` |
+| `0x30` | String | escaped (§4) and terminated with `00 00`, or truncated |
+| `0x40` | Bytes | as String |
+| `0xF0` | List, Map, Vector | the SHA-256 of the equality key |
+
+Ordered families refuse NaN and infinities: a write or a backfill that would index one fails with `INVALID_ARGUMENT`.
+
+**Truncation.** When the escaped form of a String or Bytes value is longer than `prefixBytes`, the entry keeps the longest prefix of the escaped form of at most `prefixBytes` bytes that does not split an escape `00 FF`, then the marker `00 01` and the first 16 bytes of the SHA-256 of the value. `00 01` sorts after the terminator `00 00`, so a truncated key follows the text equal to its prefix and precedes every greater text; texts that share the same truncated prefix are ordered by their full values when read.
+
+**Equality key.** Uniqueness and the hashed family use the canonical equality key of a value: Null `00`; Bool `01` and u8; a finite non-zero number `02`, a sign u8, then the exponent i32 and the odd mantissa u64 (big-endian) of its exact binary fraction, so Int 1 and Float 1.0 meet; zero `03`, either sign; NaN `04`; +Inf `05`; −Inf `06`; String `07` and Bytes `08`, each with a u32 length and the bytes; Vector `09`, List `0A` and Map `0B`, each with a u32 count, then the components as numbers, the items, or each key with a u32 length followed by its value, keys in byte order. A hash never proves equality: the base record decides.
+

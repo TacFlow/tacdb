@@ -115,6 +115,7 @@ jobs:
           for f in FuzzRecordDecode FuzzSegmentScan; do
             go test ./internal/wal -run '^$' -fuzz="^${f}\$" -fuzztime=60s
           done
+          go test ./internal/index -run '^$' -fuzz='^FuzzSortableKey$' -fuzztime=60s
 
   deps:
     runs-on: ubuntu-latest
