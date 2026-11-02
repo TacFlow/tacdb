@@ -288,3 +288,35 @@ A checkpoint copies to the main file the state of a target commit T: the durable
 
 A crash before step 3 keeps the previous superblock and every segment from its floor; pages already written are read from the log until a checkpoint completes. A crash after it leaves segments below the floor, which the next open removes once recovery is done. A checkpoint can be repeated any number of times.
 
+
+## 13. Logical trees
+
+Implementation: `internal/catalog`. The State holds 19 roots; slots 19 to 31 are reserved and zero. A root of 0 is an empty tree. Keys follow §4.
+
+| Slot | Tree | Key → value |
+|---:|---|---|
+| 0 | Nodes | node records and properties (M3b) |
+| 1 | Adjacency | adjacency entries (M3b) |
+| 2 | Labels | label membership (M3b) |
+| 3 | SymbolsForward | `(kind u8, name string)` → `id` u32 big-endian |
+| 4 | SymbolsReverse | `(kind u8, id u32)` → name, UTF-8 bytes |
+| 5–8 | FTSRuns, FTSPostings, FTSDocs, VectorMeta | later milestones |
+| 9 | Edges | edge records and properties (M3b) |
+| 10–12 | StreamMeta, StreamEvents, StreamOffsets | later milestones |
+| 13 | Catalog | `(prefix u8, …)` → record (§13.1) |
+| 14, 15 | NodeProperty, EdgeProperty | property index entries (M3c) |
+| 16 | Stats | `(prefix u8, …)` → record or counter (M3b) |
+| 17 | Sessions | later milestones |
+| 18 | Maintenance | `(prefix u8, …)` → record (M3d) |
+
+### 13.1 Records
+
+A record of Catalog, Stats, Sessions or Maintenance is `version` u16 little-endian followed by a Map (§2) whose keys are the fields of its kind of record. A reader rejects version 0 and an unknown field, a field of another kind or a missing required field in a version it knows (`CORRUPT`); a version newer than it knows is `UNSUPPORTED_FORMAT`.
+
+Catalog prefixes: 1 configuration, 2 index declarations, 3 analyzer versions, 4 durable operational state and internal identifier watermarks, 5 symbol watermarks, 6 classification and policies. Only changes under 2, 3 and 6 raise `schemaEpoch`, at most once per commit.
+
+### 13.2 Symbols
+
+Three namespaces: label (kind 1), property (2) and edge type (3). An identifier is a u32 counted from 1 in its namespace; 0 is reserved. A name is valid UTF-8, not empty, without NUL and at most 255 bytes.
+
+The watermark of a namespace is the Catalog record at key `(5, kind)`, version 1, with one required field `hwm` (Int): the largest identifier handed out. A new symbol takes `hwm + 1`, writes its forward and reverse entries and the new watermark in the same commit, and raises the State's `symbolHWM`, which is the largest watermark of the three namespaces and only checks them: a namespace watermark above it, or an identifier above a watermark, is corruption. Symbols are never removed. `MaxSymbolsPerNamespace` (default 1,000,000) limits each namespace.
