@@ -4,11 +4,11 @@ Every item of tables §32.1, §32.4 and §32.5 of the specification, with the mi
 
 | ID | Problem | Milestone | Status | Evidence |
 |---|---|---|---|---|
-| AUD-01 | 200 reads caused 200 fsyncs; commit/abort had no read-only gate | wave 1 | pending | — |
+| AUD-01 | 200 reads caused 200 fsyncs; commit/abort had no read-only gate | wave 1 | done | M3b: read transactions never touch the log, and a write transaction without pages ends without a COMMIT record; 200 `Commit`, `Rollback`, `View` and empty `Update` calls append and sync nothing (`TestReadsNeverSync`) |
 | AUD-02 | Planner k=100; LIMIT 500 returned 54–63 rows | wave 1 | pending | — |
 | AUD-03 | 5% label, LIMIT 10: 3 rows on average, sometimes 1 | wave 1/3 | pending | — |
 | AUD-04 | The C API ignores the key; a second vector overwrites the first | wave 1/3 | pending | — |
-| AUD-05 | Transaction 1025 returns out-of-memory instead of the 1024 limit | wave 1 | pending | — |
+| AUD-05 | Transaction 1025 returns out-of-memory instead of the 1024 limit | wave 1 | done | M2: `MaxActiveTransactions` with `TOO_MANY_TRANSACTIONS` in the engine; M3b: through the public API, with limits 1024 and 1500, the details and the count back at zero (`TestTransactionLimit`) |
 | AUD-06 | Immediate "LockTimeout", reported at 26 µs | wave 1/2 | pending | — |
 | AUD-07 | Promise/async in the TS binding blocks the event loop with a synchronous native call | wave 2 | pending | — |
 | AUD-08 | The design promises zero WAL on reads; the docs describe an HNSW rebuild and a 20k-vector reopen in 0.4 s | wave 1/3 | pending | — |
@@ -35,7 +35,7 @@ Every item of tables §32.1, §32.4 and §32.5 of the specification, with the mi
 | REV-15 | The single writer held by long operations | M2/M10 | partial | M2c: `MaxWriteTxDuration` rolls back a write transaction held too long, the queue moves on and sealed intents stay (TX-19: `TestWriteTxTimeout`); the idle remote transaction in M10 |
 | REV-16 | DDL could not index a large database online | M3 | pending | — |
 | REV-17 | A consumer wrote one WriteTx per skipped event | M7 | pending | — |
-| REV-18 | Metadata and properties in distant regions of the tree | M3 | pending | — |
+| REV-18 | Metadata and properties in distant regions of the tree | M3 | done | M3b: a property is its own entry `(entity, 1, property)` next to the record `(entity, 0)` (FORMAT.md §13.3); setting one writes one entry, and the keys of an entity stay one contiguous run whatever the order of the writes (`TestColocated`) |
 | REV-19 | Low fanout with long keys; wide slots | M1 | done | M1c: prefix compression, 4-byte slots and uvarints in `internal/page`; M1e: truncated separators in `internal/btree` and BT-03 (`TestAgainstModel` with long common prefixes; `TestSeparatorsAreTruncated`, where full separators would need a third level; `TestVerifyRejectsBadSeparators`) |
 | REV-20 | Chained overflow without readahead; large values polluted the cache | M1 | done | M1c: extents in the page format; M1e: one sequential `ReadOverflow` per extent (BT-04, `TestLargeValues`, `TestForgedDescriptorExtents`); M2b: the production page reader in `internal/versions` reads extents above `LargeValueBypassBytes` without the cache (`TestLargeValueBypass`) |
 | REV-21 | A LIFO freelist scattered pages and defeated compact | M1 | done | M1e: bitmap groups in `internal/alloc`, lowest address first, with a locality hint (BT-05 without scrub: `TestLowestAddressFirst`, `TestRandomAllocFreeWithReopen`); M2d: the checkpoint scrubs freed pages, also after an interrupted checkpoint (`TestScrub`, `TestScrubAfterInterruptedCheckpoint`) |

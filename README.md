@@ -2,7 +2,7 @@
 
 An embeddable graph database in Go, with full-text search, optional vector search, transactions and durable streams, integrated with the TAC language.
 
-**Status:** under construction. The current milestone is M1 (foundation); nothing here is ready for use.
+**Status:** under construction. The current milestone is M3 (graph and property indexes): the storage engine and the graph API work, the query language does not exist yet. Nothing here is ready for production use.
 
 ## Documents
 
