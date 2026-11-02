@@ -514,6 +514,14 @@ func (db *DB) Flush(ctx context.Context) error {
 // Active returns the open read and write transactions.
 func (db *DB) Active() int64 { return db.active.Load() }
 
+// Waiting returns the candidates waiting for the writer slot, so that
+// background work can yield to them.
+func (db *DB) Waiting() int {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.waiters.len()
+}
+
 // CloseIdle closes the handle only when no transaction is open; otherwise
 // it fails with BUSY and the handle stays open. While it checks, a
 // transaction that begins fails with SHUTTING_DOWN, so none can slip in
