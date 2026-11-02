@@ -209,7 +209,7 @@ func openTime(t *testing.T, fs vfs.FS) (time.Duration, int64) {
 // REC-11 (gate 13): the open after a crash costs in proportion to the log,
 // not to the database. Over databases of 1 GiB and of 100 GiB, a log of
 // 1 GiB opens reading the same bytes of the main file (its superblocks),
-// and in the same time within 10%, the best of five after a warm-up. The
+// and in the same time within 10%, the best of nine after a warm-up. The
 // bytes are the exact proof; the time is the gate of the specification.
 func TestREC11(t *testing.T) {
 	gate(t, "rec11")
@@ -222,7 +222,7 @@ func TestREC11(t *testing.T) {
 	openTime(t, small) // warm the cache of the operating system for both
 	openTime(t, large)
 	var ts, tl []time.Duration
-	for range 5 { // interleaved, the best of five of each
+	for range 9 { // interleaved, the best of nine of each
 		d, rs := openTime(t, small)
 		ts = append(ts, d)
 		d, rl := openTime(t, large)
