@@ -44,7 +44,7 @@ func TestStress(t *testing.T) {
 							continue
 						}
 						for j := 0; j < rng.Intn(4); j++ {
-							if id, err := tx.NextID(c, kindNode); err == nil {
+							if id, err := tx.NextID(c, KindNode); err == nil {
 								if _, dup := seen.LoadOrStore(id, true); dup {
 									t.Errorf("identifier %d handed out twice", id)
 								}

@@ -269,8 +269,8 @@ func (db *DB) checkpoint(ctx context.Context) error {
 	st := &d.State
 	sb := page.Superblock{UUID: db.uuid, Generation: prev.Generation + 1, CheckpointLSN: d.CommitLSN,
 		CommitID: st.CommitID, SchemaEpoch: st.SchemaEpoch, NodeCount: st.NodeCount, EdgeCount: st.EdgeCount,
-		NodeHWM:   max(prev.NodeHWM, st.NodeHWM, res[kindNode]),
-		EdgeHWM:   max(prev.EdgeHWM, st.EdgeHWM, res[kindEdge]),
+		NodeHWM:   max(prev.NodeHWM, st.NodeHWM, res[KindNode]),
+		EdgeHWM:   max(prev.EdgeHWM, st.EdgeHWM, res[KindEdge]),
 		SymbolHWM: max(prev.SymbolHWM, st.SymbolHWM), PageCount: st.PageCount, WALFloorSegment: floor,
 		Flags: prev.Flags, Roots: st.Roots, FreePageCount: st.FreePageCount,
 		AppliedRaftIndex: st.AppliedRaftIndex, AppliedRaftTerm: st.AppliedRaftTerm}

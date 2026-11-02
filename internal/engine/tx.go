@@ -45,6 +45,7 @@ type WriteTx struct {
 	pins  *cache.Pins
 	trees map[int]*btree.Tree
 	saves []map[int]page.ID // roots of the open trees at each savepoint
+	stmts []int             // savepoints of the statements in progress, innermost last
 	state atomic.Int32
 	timer *time.Timer
 	in    *intent // once sealed
@@ -135,45 +136,18 @@ func (tx *WriteTx) Get(ctx context.Context, slot int, key []byte) ([]byte, bool,
 // Put writes key as one statement: on error, the transaction is back to
 // where it was before the call (SPEC §10.4).
 func (tx *WriteTx) Put(ctx context.Context, slot int, key, value []byte) error {
-	return tx.statement("engine.Put", slot, func(t *btree.Tree) error {
-		_, err := t.Put(ctx, tx.pins, key, value)
-		return err
-	})
+	return tx.Statement("engine.Put", func(s *Stmt) error { return s.Put(ctx, slot, key, value) })
 }
 
 // Delete removes key as one statement and reports whether it existed.
 func (tx *WriteTx) Delete(ctx context.Context, slot int, key []byte) (bool, error) {
 	var found bool
-	err := tx.statement("engine.Delete", slot, func(t *btree.Tree) error {
+	err := tx.Statement("engine.Delete", func(s *Stmt) error {
 		var err error
-		found, _, err = t.Delete(ctx, tx.pins, key)
+		found, err = s.Delete(ctx, slot, key)
 		return err
 	})
 	return found, err
-}
-
-// statement runs fn under an internal savepoint and enforces MaxTxBytes.
-func (tx *WriteTx) statement(op string, slot int, fn func(*btree.Tree) error) error {
-	t, err := tx.Tree(slot)
-	if err != nil {
-		return err
-	}
-	sp, err := tx.Savepoint()
-	if err != nil {
-		return err
-	}
-	err = fn(t)
-	if err == nil && tx.res.Bytes() > tx.db.opts.MaxTxBytes {
-		err = errs.Newf(errs.CodeLimitExceeded, op, "the transaction holds more than MaxTxBytes").
-			With("limit", tx.db.opts.MaxTxBytes)
-	}
-	if err != nil {
-		if rerr := tx.RollbackTo(sp); rerr != nil {
-			return rerr
-		}
-	}
-	tx.Release(sp)
-	return err
 }
 
 // Savepoint marks the current state in O(1) (SPEC §10.4, TX-20).
@@ -189,8 +163,16 @@ func (tx *WriteTx) Savepoint() (int, error) {
 	return tx.view.Savepoint(), nil
 }
 
-// RollbackTo restores savepoint sp, which stays active.
+// RollbackTo restores savepoint sp, which stays active. Inside a
+// statement, a savepoint older than the statement's own is out of reach.
 func (tx *WriteTx) RollbackTo(sp int) error {
+	if n := len(tx.stmts); n > 0 && sp < tx.stmts[n-1] {
+		return errs.Newf(errs.CodeInvalidArgument, "engine.RollbackTo", "savepoint %d is older than the statement in progress", sp)
+	}
+	return tx.rollbackTo(sp)
+}
+
+func (tx *WriteTx) rollbackTo(sp int) error {
 	if err := tx.check("engine.RollbackTo"); err != nil {
 		return err
 	}
@@ -211,8 +193,16 @@ func (tx *WriteTx) RollbackTo(sp int) error {
 	return nil
 }
 
-// Release drops savepoint sp and the later ones.
+// Release drops savepoint sp and the later ones. Inside a statement, the
+// statement's own savepoint and older ones are out of reach.
 func (tx *WriteTx) Release(sp int) {
+	if n := len(tx.stmts); n > 0 && sp <= tx.stmts[n-1] {
+		return
+	}
+	tx.release(sp)
+}
+
+func (tx *WriteTx) release(sp int) {
 	if tx.check("engine.Release") != nil || sp < 0 || sp >= len(tx.saves) {
 		return
 	}
@@ -259,6 +249,14 @@ func (tx *WriteTx) Commit(ctx context.Context) (Receipt, error) { return tx.comm
 // queue gives COMMIT_QUEUE_FULL.
 func (tx *WriteTx) TryCommit(ctx context.Context) (Receipt, error) { return tx.commit(ctx, false) }
 
+// counted reports whether the statements changed the counters of the
+// state: counts, schema epoch or symbol watermark.
+func (tx *WriteTx) counted() bool {
+	st, b := tx.view.State(), &tx.base.State
+	return st.NodeCount != b.NodeCount || st.EdgeCount != b.EdgeCount ||
+		st.SchemaEpoch != b.SchemaEpoch || st.SymbolHWM != b.SymbolHWM
+}
+
 // intentOverhead is what an intent costs beyond its pages: BEGIN, its
 // share of COMMIT, receipt and bookkeeping.
 const intentOverhead = 1024
@@ -271,8 +269,16 @@ func (tx *WriteTx) commit(ctx context.Context, wait bool) (Receipt, error) {
 	if err := ctx.Err(); err != nil {
 		return Receipt{}, ctxErr(err, op)
 	}
+	if len(tx.stmts) > 0 {
+		return Receipt{}, errs.New(errs.CodeInvalidArgument, op, "commit inside a statement")
+	}
 	db := tx.db
 	parent := tx.base.State.CommitID
+	if tx.view.Dirty() == 0 && tx.counted() {
+		// Counts, epoch and watermarks only change with the records they
+		// describe: alone, they would be dropped by a commit without pages.
+		return Receipt{}, errs.New(errs.CodeInvalidArgument, op, "the state changed without any page written")
+	}
 	if tx.view.Dirty() == 0 {
 		// Nothing to commit: no COMMIT record, but the end respects the
 		// durability barrier of the base (SPEC §9.2 step 1).
@@ -292,7 +298,7 @@ func (tx *WriteTx) commit(ctx context.Context, wait bool) (Receipt, error) {
 		tx.view.SetRoot(slot, t.Root())
 	}
 	st := tx.view.State()
-	st.NodeHWM, st.EdgeHWM = max(st.NodeHWM, db.ids.limit(kindNode)), max(st.EdgeHWM, db.ids.limit(kindEdge))
+	st.NodeHWM, st.EdgeHWM = max(st.NodeHWM, db.ids.limit(KindNode)), max(st.EdgeHWM, db.ids.limit(KindEdge))
 	bytes := int64(tx.view.Dirty())*(page.Size+wal.RecordHeaderSize) + intentOverhead
 	if bytes > MaxGroupBytes { // trees used directly bypass the MaxTxBytes of statements
 		return Receipt{}, errs.Newf(errs.CodeLimitExceeded, op, "the transaction changes %d pages, more than a group holds", tx.view.Dirty())

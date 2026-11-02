@@ -230,7 +230,7 @@ func TestOrphanLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.AppendReserve(wal.Reserve{Kind: kindNode, HighWatermark: 10}); err != nil {
+	if _, err := w.AppendReserve(wal.Reserve{Kind: KindNode, HighWatermark: 10}); err != nil {
 		t.Fatal(err)
 	}
 	w.Sync()

@@ -341,9 +341,9 @@ func (db *DB) recover(ctx context.Context) error {
 	st := &dir.State
 	for _, r := range res.Reserves { // also those of a discarded tail: they only skip IDs
 		switch r.Kind {
-		case kindNode:
+		case KindNode:
 			st.NodeHWM = max(st.NodeHWM, r.HighWatermark)
-		case kindEdge:
+		case KindEdge:
 			st.EdgeHWM = max(st.EdgeHWM, r.HighWatermark)
 		}
 	}
