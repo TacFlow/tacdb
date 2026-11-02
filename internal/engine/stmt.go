@@ -13,6 +13,9 @@ type Reader interface {
 	Get(ctx context.Context, slot int, key []byte) ([]byte, bool, error)
 	Range(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error
 	State() wal.State
+	// Check reports whether the reader can still be used: TX_CLOSED,
+	// WRITE_TX_TIMEOUT or SNAPSHOT_EXPIRED otherwise.
+	Check() error
 }
 
 var (
@@ -66,6 +69,24 @@ func (tx *WriteTx) Statement(op string, fn func(s *Stmt) error) (err error) {
 	}
 	ok = err == nil
 	return err
+}
+
+// Check reports whether the statement can still be used.
+func (s *Stmt) Check() error { return s.usable() }
+
+// Check reports whether the transaction can still be used.
+func (tx *WriteTx) Check() error { return tx.check("engine.Check") }
+
+// IDBound returns an identifier of kind above every one handed out so
+// far: those handed out later are at least it.
+func (tx *WriteTx) IDBound(kind int) uint64 {
+	a := &tx.db.ids
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if kind != KindNode && kind != KindEdge {
+		return 0
+	}
+	return a.kinds[kind].next
 }
 
 func (s *Stmt) usable() error {
@@ -165,6 +186,15 @@ func (s *Stmt) RaiseSymbolHWM(n uint64) error {
 	st := s.tx.view.State()
 	st.SymbolHWM = max(st.SymbolHWM, n)
 	return nil
+}
+
+// NextID returns a new node or edge identifier, as WriteTx.NextID: a
+// failed statement does not give it back.
+func (s *Stmt) NextID(ctx context.Context, kind int) (uint64, error) {
+	if err := s.usable(); err != nil {
+		return 0, err
+	}
+	return s.tx.NextID(ctx, kind)
 }
 
 // State returns the working state of the transaction: its counts, epoch

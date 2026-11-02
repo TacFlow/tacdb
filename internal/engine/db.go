@@ -42,6 +42,7 @@ type DB struct {
 	reg                      registry
 	active                   atomic.Int64 // open transactions
 	closed                   atomic.Bool
+	closing                  atomic.Bool // CloseIdle is checking for open transactions
 	failedErr                atomic.Pointer[error]
 	firstCommit              uint64        // CommitIDs above it were issued by this handle
 	walFloor                 atomic.Uint64 // wal_floor_segment of the base T in force

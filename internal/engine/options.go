@@ -1,7 +1,7 @@
 // Package engine is the storage engine: a database handle with snapshots,
 // one admitted writer at a time, commits sealed in order of their parents
 // and made durable by a coordinator that writes the log in groups (SPEC
-// §9 and §10). The public API arrives with the graph, in M3.
+// §9 and §10). The public API is package tacdb, over this one.
 package engine
 
 import (

@@ -511,6 +511,22 @@ func (db *DB) Flush(ctx context.Context) error {
 	return db.waitDurable(ctx, barrier, "engine.Flush")
 }
 
+// Active returns the open read and write transactions.
+func (db *DB) Active() int64 { return db.active.Load() }
+
+// CloseIdle closes the handle only when no transaction is open; otherwise
+// it fails with BUSY and the handle stays open. While it checks, a
+// transaction that begins fails with SHUTTING_DOWN, so none can slip in
+// between the check and the close. Calls must not overlap.
+func (db *DB) CloseIdle() error {
+	db.closing.Store(true)
+	if n := db.active.Load(); n > 0 {
+		db.closing.Store(false)
+		return errs.Newf(errs.CodeBusy, "engine.Close", "%d transactions open", n).With("active", n)
+	}
+	return db.Close()
+}
+
 // CommitStatus returns what the handle knows of a commit token.
 func (db *DB) CommitStatus(token [16]byte) Status {
 	db.mu.Lock()

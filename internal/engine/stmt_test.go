@@ -259,3 +259,39 @@ func TestCountersNeedPages(t *testing.T) {
 		t.Fatal("a Stmt after its statement shows the state")
 	}
 }
+
+// CloseIdle fails with BUSY while a transaction is open and keeps the
+// handle; a transaction that begins while it checks is refused, so none
+// is left open by a Close that succeeds.
+func TestCloseIdle(t *testing.T) {
+	db := open(t, vfs.NewMemFS(), testOptions())
+	r, err := db.BeginRead(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var e *errs.Error
+	if err := db.CloseIdle(); errs.CodeOf(err) != errs.CodeBusy || !errors.As(err, &e) || e.Details["active"] != 1 {
+		t.Fatalf("CloseIdle with a reader: %v", err)
+	}
+	if err := r.Check(); err != nil {
+		t.Fatalf("the reader after BUSY: %v", err)
+	}
+	r.Close()
+	db.closing.Store(true) // as while CloseIdle checks
+	if _, err := db.BeginRead(ctx); errs.CodeOf(err) != errs.CodeShuttingDown {
+		t.Fatalf("a reader while CloseIdle checks: %v", err)
+	}
+	if _, err := db.BeginWrite(ctx); errs.CodeOf(err) != errs.CodeShuttingDown {
+		t.Fatalf("a writer while CloseIdle checks: %v", err)
+	}
+	if db.Active() != 0 {
+		t.Fatalf("refused transactions stay counted: %d", db.Active())
+	}
+	db.closing.Store(false)
+	if err := db.CloseIdle(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.BeginRead(ctx); errs.CodeOf(err) != errs.CodeClosed {
+		t.Fatalf("a reader after CloseIdle: %v", err)
+	}
+}

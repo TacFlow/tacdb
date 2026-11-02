@@ -184,6 +184,10 @@ func (db *DB) enter(op string) error {
 				With("limit", int64(db.opts.MaxActiveTransactions))
 		}
 		if db.active.CompareAndSwap(n, n+1) {
+			if db.closing.Load() { // CloseIdle may have counted before this
+				db.active.Add(-1)
+				return errs.New(errs.CodeShuttingDown, op, "database closing")
+			}
 			return nil
 		}
 	}
@@ -278,6 +282,16 @@ func (t *ReadTx) Range(ctx context.Context, slot int, lo, hi []byte, fn func(k, 
 	}
 	defer t.snap.exitOp(&t.db.reg)
 	return btree.Range(ctx, t.view, t.pins, t.dir.State.Roots[slot], lo, hi, fn)
+}
+
+// Check reports whether the transaction can still be used: open, its
+// snapshot neither revoked nor older than MaxReadTxAge.
+func (t *ReadTx) Check() error {
+	if err := t.begin("engine.Check"); err != nil {
+		return err
+	}
+	t.snap.exitOp(&t.db.reg)
+	return nil
 }
 
 // Close ends the transaction; it is idempotent and does no I/O.
