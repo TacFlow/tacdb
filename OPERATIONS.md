@@ -92,3 +92,27 @@ Revocation is cooperative: an operation already running finishes and delivers al
 
 Each revocation and each refused commit calls `OnEvent` with the kind of event, the number of snapshots, the age and origin of the oldest and the log they pin. The callback runs on the goroutine that found the event (maintenance, a commit or a reader), with no lock of the handle held, and must not block. `Stats` counts checkpoints, copied and scrubbed pages, removed segments, revoked snapshots and `WAL_LIMIT` refusals.
 
+## 5. Indexes
+
+### 5.1 Creating an index
+
+`Tx.CreateIndex` declares an index and fills it inside the write transaction, which publishes both at its commit. It suits a scope that fits `MaxTxBytes`; beyond that it fails with `LIMIT_EXCEEDED`, and the index must be built online.
+
+### 5.2 Building an index online
+
+`DB.BuildIndex` builds an index while the application keeps writing (§12.2 of the specification):
+
+1. A first commit declares the index BUILDING. From then on every writer keeps it, so the index never misses a change.
+2. Batches fill it by ascending entity ID. Each batch is a short write transaction in the same FIFO queue as the application, of at most `IndexBuildBatchBytes` (4 MiB by default, never more than half of `MaxTxBytes`); between batches the build waits while application writers wait for the writer slot.
+3. A last commit compares the entry counter with the entries the batches and the writers counted, and publishes the index ONLINE, or FAILED.
+
+Only ONLINE indexes answer queries. A unique index whose data, or whose writers during the build, hold equal values ends FAILED with `UNIQUE_VIOLATION` and the first pairs of entities in `IndexBuildStatus.Conflicts`; a value the index refuses, such as NaN in an ordered index, fails it with that error. A FAILED index keeps its name until `DropIndex`.
+
+`BuildIndex` returns when the build ends, when its context does (the build goes on in the background and `IndexStatus` follows it), when the handle closes (`CLOSED`), or when the index is dropped (`INDEX_NOT_FOUND`). While transactions fill `MaxActiveTransactions`, background work waits and tries again. Calling `BuildIndex` again for the same declaration waits for the same build. The build keeps its progress in the database: after `Close` or a crash, the next handle opened for writing resumes it from its last batch.
+
+### 5.3 Dropping an index
+
+`DropIndex` removes the declaration in its transaction and cancels a build in progress. The entries are purged afterwards, in batches of 1,024 that yield to application writers like build batches, by the handle that committed the drop or by the next one opened for writing. A new index under the same name takes a new identifier, so entries left to purge never meet it.
+
+`Close` stops the background builds and purges between batches; with transactions still open it fails with `BUSY` and they resume.
+
