@@ -12,6 +12,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/catalog"
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
+	"github.com/TacFlow/tacdb/internal/index"
 	"github.com/TacFlow/tacdb/internal/vfs"
 	"github.com/TacFlow/tacdb/value"
 )
@@ -29,11 +30,14 @@ type mEdge struct {
 
 // model is the graph in memory.
 type model struct {
-	nodes map[uint64]*mNode
-	edges map[uint64]*mEdge
+	nodes   map[uint64]*mNode
+	edges   map[uint64]*mEdge
+	indexes map[string]IndexDef
 }
 
-func newModel() *model { return &model{nodes: map[uint64]*mNode{}, edges: map[uint64]*mEdge{}} }
+func newModel() *model {
+	return &model{nodes: map[uint64]*mNode{}, edges: map[uint64]*mEdge{}, indexes: map[string]IndexDef{}}
+}
 
 func (m *model) clone() *model {
 	c := newModel()
@@ -43,7 +47,51 @@ func (m *model) clone() *model {
 	for id, e := range m.edges {
 		c.edges[id] = &mEdge{e.from, e.to, e.typ, maps.Clone(e.props)}
 	}
+	c.indexes = maps.Clone(m.indexes)
 	return c
+}
+
+// indexed returns the entities in the scope of d with its property, and
+// their values.
+func (m *model) indexed(d IndexDef) map[uint64]value.Value {
+	out := map[uint64]value.Value{}
+	if d.Entity == EdgeEntity {
+		for id, e := range m.edges {
+			if v, ok := e.props[d.Property]; ok && e.typ == d.Scope {
+				out[id] = v
+			}
+		}
+		return out
+	}
+	for id, n := range m.nodes {
+		if v, ok := n.props[d.Property]; ok && slices.Contains(n.labels, d.Scope) {
+			out[id] = v
+		}
+	}
+	return out
+}
+
+// unique reports whether every unique index holds distinct values; the
+// generated values have no NaN, so Compare is the equality of uniqueness.
+func (m *model) unique() bool {
+	for _, d := range m.indexes {
+		if !d.Unique {
+			continue
+		}
+		var seen []value.Value
+		for _, v := range m.indexed(d) {
+			if v.IsNull() {
+				continue
+			}
+			for _, w := range seen {
+				if value.Compare(v, w) == 0 {
+					return false
+				}
+			}
+			seen = append(seen, v)
+		}
+	}
+	return true
 }
 
 func (m *model) dump() string {
@@ -108,7 +156,7 @@ func randValue(rng *rand.Rand) value.Value {
 	case 0:
 		return value.Null()
 	case 1:
-		return value.Int(rng.Int64N(5) - 2)
+		return value.Int(rng.Int64N(3))
 	case 2:
 		return value.Float(float64(rng.IntN(4)) / 2)
 	case 3:
@@ -117,6 +165,15 @@ func randValue(rng *rand.Rand) value.Value {
 		return value.List(value.Int(1), value.String("x"))
 	}
 	return value.Bool(rng.IntN(2) == 0)
+}
+
+// pickName returns a name, the first (indexed from the start) half the
+// time.
+func pickName(rng *rand.Rand, names []string) string {
+	if rng.IntN(2) == 0 {
+		return names[0]
+	}
+	return names[rng.IntN(len(names))]
 }
 
 // pick returns a live ID of ids, or a missing one now and then.
@@ -131,12 +188,24 @@ func pick(rng *rand.Rand, ids []uint64) uint64 {
 // after each step the dump, the counts, sampled degrees and cursors and
 // the structural check agree.
 func TestAgainstModel(t *testing.T) {
-	for seed := range uint64(6) {
-		t.Run(fmt.Sprint(seed), func(t *testing.T) { runModel(t, seed, 400) })
+	seen := map[errs.Code]int{}
+	for seed := range uint64(8) {
+		t.Run(fmt.Sprint(seed), func(t *testing.T) { runModel(t, seed, 500, seen) })
+	}
+	// The run must reach the cases it is meant to check.
+	for _, c := range []errs.Code{"", errs.CodeUniqueViolation, errs.CodeIndexExistsDifferent, errs.CodeIndexNotFound, errs.CodeNotFound} {
+		if seen[c] == 0 {
+			t.Errorf("no operation ended with %q: %v", c, seen)
+		}
+	}
+	for k, least := range map[errs.Code]int{"index entries": 2000, "unindexed by RemoveLabel": 10, errs.CodeUniqueViolation: 15} {
+		if seen[k] < least {
+			t.Errorf("%q happened %d times, want %d: %v", k, seen[k], least, seen)
+		}
 	}
 }
 
-func runModel(t *testing.T, seed uint64, steps int) {
+func runModel(t *testing.T, seed uint64, steps int, seen map[errs.Code]int) {
 	rng := rand.New(rand.NewPCG(seed, 7))
 	db := openDB(t, vfs.NewMemFS(), options())
 	defer db.Close()
@@ -144,10 +213,19 @@ func runModel(t *testing.T, seed uint64, steps int) {
 	g.MaxLabels, g.MaxProperties = 3, 2
 	committed, m := newModel(), newModel()
 	tx := begin(t, db)
+	// Indexes from the start, so that most steps meet them: a unique one
+	// over nodes and one over edges.
+	for _, d := range []IndexDef{
+		{Name: "i0", Scope: "A", Property: "p", Unique: true},
+		{Name: "i1", Entity: EdgeEntity, Scope: "R", Property: "q"},
+	} {
+		do(t, tx, func(s *engine.Stmt) error { return g.CreateIndex(ctx, s, d) })
+		m.indexes[d.Name] = d
+	}
 	var saves []*model
 	for step := range steps {
 		nodes, edges := slices.Sorted(maps.Keys(m.nodes)), slices.Sorted(maps.Keys(m.edges))
-		op := rng.IntN(16)
+		op := rng.IntN(18)
 		var want errs.Code
 		var apply func(id uint64)
 		var fn func(s *engine.Stmt) (uint64, error)
@@ -155,11 +233,11 @@ func runModel(t *testing.T, seed uint64, steps int) {
 		case 0, 1: // CreateNode
 			var labels []string
 			for range rng.IntN(5) {
-				labels = append(labels, labelNames[rng.IntN(len(labelNames))])
+				labels = append(labels, pickName(rng, labelNames))
 			}
 			props := map[string]value.Value{}
 			for range rng.IntN(3) {
-				props[propNames[rng.IntN(len(propNames))]] = randValue(rng)
+				props[pickName(rng, propNames)] = randValue(rng)
 			}
 			var uniq []string
 			for _, l := range labels {
@@ -177,12 +255,16 @@ func runModel(t *testing.T, seed uint64, steps int) {
 			if rng.IntN(5) == 0 {
 				to = from
 			}
-			typ := typeNames[rng.IntN(len(typeNames))]
+			typ := pickName(rng, typeNames)
 			if m.nodes[from] == nil || m.nodes[to] == nil {
 				want = errs.CodeNotFound
 			}
-			fn = func(s *engine.Stmt) (uint64, error) { return g.CreateEdge(ctx, s, from, to, typ, nil) }
-			apply = func(id uint64) { m.edges[id] = &mEdge{from, to, typ, map[string]value.Value{}} }
+			props := map[string]value.Value{}
+			if rng.IntN(2) == 0 {
+				props[pickName(rng, propNames)] = randValue(rng)
+			}
+			fn = func(s *engine.Stmt) (uint64, error) { return g.CreateEdge(ctx, s, from, to, typ, props) }
+			apply = func(id uint64) { m.edges[id] = &mEdge{from, to, typ, maps.Clone(props)} }
 		case 5: // DeleteEdge
 			id := pick(rng, edges)
 			if m.edges[id] == nil {
@@ -206,7 +288,7 @@ func runModel(t *testing.T, seed uint64, steps int) {
 				delete(m.nodes, id)
 			}
 		case 8: // AddLabel
-			id, l := pick(rng, nodes), labelNames[rng.IntN(len(labelNames))]
+			id, l := pick(rng, nodes), pickName(rng, labelNames)
 			switch n := m.nodes[id]; {
 			case n == nil:
 				want = errs.CodeNotFound
@@ -220,9 +302,16 @@ func runModel(t *testing.T, seed uint64, steps int) {
 				}
 			}
 		case 9: // RemoveLabel
-			id, l := pick(rng, nodes), labelNames[rng.IntN(len(labelNames))]
+			id, l := pick(rng, nodes), pickName(rng, labelNames)
 			if m.nodes[id] == nil {
 				want = errs.CodeNotFound
+			}
+			if n := m.nodes[id]; n != nil && slices.Contains(n.labels, l) {
+				for _, d := range m.indexes {
+					if _, ok := n.props[d.Property]; ok && d.Entity == NodeEntity && d.Scope == l {
+						seen["unindexed by RemoveLabel"]++
+					}
+				}
 			}
 			fn = func(s *engine.Stmt) (uint64, error) { return 0, g.RemoveLabel(ctx, s, id, l) }
 			apply = func(uint64) {
@@ -234,7 +323,7 @@ func runModel(t *testing.T, seed uint64, steps int) {
 			if rng.IntN(2) == 0 {
 				e, ids = EdgeEntity, edges
 			}
-			id, k, v := pick(rng, ids), propNames[rng.IntN(len(propNames))], randValue(rng)
+			id, k, v := pick(rng, ids), pickName(rng, propNames), randValue(rng)
 			props := m.props(e, id)
 			switch _, has := props[k]; {
 			case props == nil:
@@ -249,7 +338,7 @@ func runModel(t *testing.T, seed uint64, steps int) {
 			if rng.IntN(2) == 0 {
 				e, ids = EdgeEntity, edges
 			}
-			id, k := pick(rng, ids), propNames[rng.IntN(len(propNames))]
+			id, k := pick(rng, ids), pickName(rng, propNames)
 			if m.props(e, id) == nil {
 				want = errs.CodeNotFound
 			}
@@ -285,6 +374,28 @@ func runModel(t *testing.T, seed uint64, steps int) {
 			tx.Rollback()
 			m, saves = committed.clone(), nil
 			tx = begin(t, db)
+		case 16: // CreateIndex
+			d := IndexDef{Name: "i" + strconv.Itoa(rng.IntN(4)), Property: pickName(rng, propNames), Unique: rng.IntN(2) == 0}
+			if rng.IntN(2) == 0 {
+				d.Entity, d.Scope = EdgeEntity, pickName(rng, typeNames)
+			} else {
+				d.Scope = pickName(rng, labelNames)
+			}
+			if old, ok := m.indexes[d.Name]; ok && old != d {
+				want = errs.CodeIndexExistsDifferent
+			}
+			fn = func(s *engine.Stmt) (uint64, error) { return 0, g.CreateIndex(ctx, s, d) }
+			apply = func(uint64) { m.indexes[d.Name] = d }
+		case 17: // DropIndex, now and then
+			if rng.IntN(4) > 0 {
+				break
+			}
+			name := "i" + strconv.Itoa(rng.IntN(4))
+			if _, ok := m.indexes[name]; !ok {
+				want = errs.CodeIndexNotFound
+			}
+			fn = func(s *engine.Stmt) (uint64, error) { return 0, g.DropIndex(ctx, s, name) }
+			apply = func(uint64) { delete(m.indexes, name) }
 		}
 		if fn != nil {
 			var id uint64
@@ -293,11 +404,26 @@ func runModel(t *testing.T, seed uint64, steps int) {
 				id, err = fn(s)
 				return err
 			})
+			if want == "" {
+				// The operation fails on uniqueness exactly when its effect
+				// would leave two equal values in a unique index.
+				saved := m
+				m = m.clone()
+				apply(1 << 62)
+				if !m.unique() {
+					want = errs.CodeUniqueViolation
+				}
+				m = saved
+			}
 			if errs.CodeOf(err) != want || (want == "" && err != nil) {
 				t.Fatalf("step %d op %d: %v, want %q", step, op, err, want)
 			}
 			if err == nil {
 				apply(id)
+			}
+			seen[errs.CodeOf(err)]++
+			for _, d := range m.indexes {
+				seen["index entries"] += len(m.indexed(d))
 			}
 		}
 		check(t, g, tx, m, rng, step)
@@ -329,6 +455,34 @@ func check(t *testing.T, g *Graph, tx *engine.WriteTx, m *model, rng *rand.Rand,
 	if err := g.Verify(ctx, tx); err != nil {
 		t.Fatalf("step %d: %v", step, err)
 	}
+	if names := slices.Sorted(maps.Keys(m.indexes)); len(names) > 0 {
+		d := m.indexes[names[rng.IntN(len(names))]]
+		set, err := g.Indexes.Get(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ix, _ := set.Named(d.Name)
+		v := randValue(rng)
+		var want []uint64
+		for id, w := range m.indexed(d) {
+			if !v.IsNull() && value.Compare(v, w) == 0 {
+				want = append(want, id)
+			}
+		}
+		slices.Sort(want)
+		it, err := index.Seek(ctx, tx, ix, index.Query{Op: index.Equal, Value: v})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []uint64
+		for it.Next(ctx) {
+			got = append(got, it.Hit().Entity)
+		}
+		slices.Sort(got)
+		if it.Err() != nil || !slices.Equal(got, want) {
+			t.Fatalf("step %d: index %q seeks %v: %v, %v; model %v", step, d.Name, v, got, it.Err(), want)
+		}
+	}
 	if len(m.nodes) == 0 {
 		return
 	}
@@ -338,7 +492,7 @@ func check(t *testing.T, g *Graph, tx *engine.WriteTx, m *model, rng *rand.Rand,
 		typ := ""
 		var tid catalog.EdgeTypeID
 		if rng.IntN(2) == 0 {
-			typ = typeNames[rng.IntN(len(typeNames))]
+			typ = pickName(rng, typeNames)
 			var ok bool
 			tid, ok, _ = catalog.Lookup[catalog.EdgeTypeID](ctx, tx, typ)
 			if !ok {

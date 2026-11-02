@@ -17,6 +17,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/govern"
+	"github.com/TacFlow/tacdb/internal/index"
 	"github.com/TacFlow/tacdb/internal/vfs"
 	"github.com/TacFlow/tacdb/value"
 )
@@ -40,7 +41,7 @@ func options() engine.Options {
 
 func newGraph() *Graph {
 	return &Graph{MaxSymbols: 1000, MaxLabels: DefaultMaxLabels, MaxProperties: DefaultMaxProperties,
-		Limits: value.DefaultLimits(), Symbols: catalog.NewCache(1024)}
+		Limits: value.DefaultLimits(), Symbols: catalog.NewCache(1024), Indexes: &index.Cache{}, IndexPrefixBytes: index.DefaultPrefixBytes}
 }
 
 func openDB(t *testing.T, fs vfs.FS, o engine.Options) *engine.DB {

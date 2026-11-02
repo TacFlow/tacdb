@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"maps"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/codec"
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
+	"github.com/TacFlow/tacdb/internal/index"
 	"github.com/TacFlow/tacdb/value"
 )
 
@@ -19,14 +21,17 @@ const (
 	DefaultMaxProperties = 1024
 )
 
-// Graph holds the limits of a handle and its symbol cache. Its methods
-// write only inside an engine statement and read any engine.Reader.
+// Graph holds the limits of a handle and its caches. Its methods write
+// only inside an engine statement, keeping the indexes of every change in
+// the same statement, and read any engine.Reader.
 type Graph struct {
-	MaxSymbols    uint32 // MaxSymbolsPerNamespace
-	MaxLabels     int    // labels of a node
-	MaxProperties int    // properties of a node or an edge
-	Limits        value.Limits
-	Symbols       *catalog.Cache
+	MaxSymbols       uint32 // MaxSymbolsPerNamespace
+	MaxLabels        int    // labels of a node
+	MaxProperties    int    // properties of a node or an edge
+	Limits           value.Limits
+	IndexPrefixBytes int // IndexKeyPrefixBytes, for indexes created by this handle
+	Symbols          *catalog.Cache
+	Indexes          *index.Cache
 }
 
 // Entity says whether an ID names a node or an edge.
@@ -43,6 +48,13 @@ func (e Entity) slot() int {
 		return catalog.SlotEdges
 	}
 	return catalog.SlotNodes
+}
+
+func (e Entity) index() index.Entity {
+	if e == EdgeEntity {
+		return index.Edges
+	}
+	return index.Nodes
 }
 
 func (e Entity) String() string {
@@ -95,13 +107,37 @@ func (g *Graph) edge(ctx context.Context, r engine.Reader, op string, id uint64)
 	return decodeEdge(b)
 }
 
-func (g *Graph) exists(ctx context.Context, r engine.Reader, op string, e Entity, id uint64) error {
+// scopes returns the index scopes of an entity, which must exist: the
+// labels of a node, the type of an edge.
+func (g *Graph) scopes(ctx context.Context, r engine.Reader, op string, e Entity, id uint64) ([]uint32, error) {
 	if e == EdgeEntity {
-		_, err := g.edge(ctx, r, op, id)
-		return err
+		rec, err := g.edge(ctx, r, op, id)
+		return []uint32{uint32(rec.typ)}, err
 	}
-	_, err := g.node(ctx, r, op, id)
-	return err
+	rec, err := g.node(ctx, r, op, id)
+	return labelScopes(rec.labels), err
+}
+
+func labelScopes(ls []catalog.LabelID) []uint32 {
+	out := make([]uint32, len(ls))
+	for i, l := range ls {
+		out[i] = uint32(l)
+	}
+	return out
+}
+
+// indexed returns the maintained indexes over property p of an entity of
+// e in one of scopes.
+func indexed(set *index.Set, e Entity, scopes []uint32, p catalog.PropertyID) []*index.Index {
+	var out []*index.Index
+	for _, sc := range scopes {
+		for _, ix := range set.Scoped(e.index(), sc) {
+			if ix.Property == p {
+				out = append(out, ix)
+			}
+		}
+	}
+	return out
 }
 
 // name returns the name of a stored symbol; a missing one is corruption.
@@ -115,6 +151,12 @@ func name[T catalog.ID](ctx context.Context, g *Graph, r engine.Reader, id T) (s
 
 func (g *Graph) decode(b []byte) (value.Value, error) {
 	return codec.DecodeValue(b, codec.DecodeOptions{Limits: g.Limits})
+}
+
+// stored decodes a stored value for maintenance, with the maxima of the
+// format: a value written under larger limits stays removable.
+func stored(b []byte) (value.Value, error) {
+	return codec.DecodeValue(b, codec.DecodeOptions{Limits: index.StoredLimits})
 }
 
 // properties reads the properties of an entity, by name.
@@ -172,7 +214,7 @@ func (g *Graph) GetEdge(ctx context.Context, r engine.Reader, id uint64) (Edge, 
 // GetProperty reads one property of an entity, which must exist. An
 // unknown name is absent and is not interned.
 func (g *Graph) GetProperty(ctx context.Context, r engine.Reader, e Entity, id uint64, key string) (value.Value, bool, error) {
-	if err := g.exists(ctx, r, "tacdb.GetProperty", e, id); err != nil {
+	if _, err := g.scopes(ctx, r, "tacdb.GetProperty", e, id); err != nil {
 		return value.Value{}, false, err
 	}
 	pid, ok, err := catalog.CachedLookup[catalog.PropertyID](ctx, g.Symbols, r, key)
@@ -190,6 +232,7 @@ func (g *Graph) GetProperty(ctx context.Context, r engine.Reader, e Entity, id u
 // encoded is a property ready to be written.
 type encoded struct {
 	name string
+	v    value.Value
 	b    []byte
 }
 
@@ -215,11 +258,16 @@ func (g *Graph) encodeProp(op, n string, v value.Value) (encoded, error) {
 		return encoded{}, err
 	}
 	b, err := codec.AppendValue(nil, v, g.Limits)
-	return encoded{n, b}, err
+	return encoded{n, v, b}, err
 }
 
-// putProps interns the names and writes the properties of a new entity.
-func (g *Graph) putProps(ctx context.Context, s *engine.Stmt, e Entity, id uint64, props []encoded) error {
+// putProps interns the names and writes the properties of a new entity,
+// with their index entries.
+func (g *Graph) putProps(ctx context.Context, s *engine.Stmt, e Entity, id uint64, scopes []uint32, props []encoded) error {
+	set, err := g.Indexes.Get(ctx, s)
+	if err != nil {
+		return err
+	}
 	for _, p := range props {
 		pid, err := catalog.Intern[catalog.PropertyID](ctx, s, p.name, g.MaxSymbols)
 		if err != nil {
@@ -227,6 +275,11 @@ func (g *Graph) putProps(ctx context.Context, s *engine.Stmt, e Entity, id uint6
 		}
 		if err := s.Put(ctx, e.slot(), propertyKey(id, pid), p.b); err != nil {
 			return err
+		}
+		for _, ix := range indexed(set, e, scopes, pid) {
+			if err := index.Insert(ctx, s, ix, id, p.v); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -273,7 +326,7 @@ func (g *Graph) CreateNode(ctx context.Context, s *engine.Stmt, labels []string,
 			return 0, err
 		}
 	}
-	if err := g.putProps(ctx, s, NodeEntity, id, enc); err != nil {
+	if err := g.putProps(ctx, s, NodeEntity, id, labelScopes(ls), enc); err != nil {
 		return 0, err
 	}
 	return id, s.AddCounts(1, 0)
@@ -297,7 +350,37 @@ func (g *Graph) AddLabel(ctx context.Context, s *engine.Stmt, id uint64, label s
 	if err := s.Put(ctx, catalog.SlotNodes, recordKey(id), rec.encode()); err != nil {
 		return err
 	}
-	return s.Put(ctx, catalog.SlotLabels, labelKey(l, id), nil)
+	if err := s.Put(ctx, catalog.SlotLabels, labelKey(l, id), nil); err != nil {
+		return err
+	}
+	return g.relabel(ctx, s, id, l, index.Insert)
+}
+
+// relabel inserts or removes the entries of node id in the indexes of
+// label l, for the properties it has.
+func (g *Graph) relabel(ctx context.Context, s *engine.Stmt, id uint64, l catalog.LabelID,
+	change func(context.Context, *engine.Stmt, *index.Index, uint64, value.Value) error) error {
+	set, err := g.Indexes.Get(ctx, s)
+	if err != nil {
+		return err
+	}
+	for _, ix := range set.Scoped(index.Nodes, uint32(l)) {
+		b, ok, err := s.Get(ctx, catalog.SlotNodes, propertyKey(id, ix.Property))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		v, err := stored(b)
+		if err != nil {
+			return err
+		}
+		if err := change(ctx, s, ix, id, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RemoveLabel removes label from node id; a label it lacks is a no-op.
@@ -308,6 +391,9 @@ func (g *Graph) RemoveLabel(ctx context.Context, s *engine.Stmt, id uint64, labe
 	}
 	l, ok, err := catalog.Lookup[catalog.LabelID](ctx, s, label)
 	if err != nil || !ok || !rec.has(l) {
+		return err
+	}
+	if err := g.relabel(ctx, s, id, l, index.Remove); err != nil {
 		return err
 	}
 	rec.labels = slices.DeleteFunc(rec.labels, func(x catalog.LabelID) bool { return x == l })
@@ -324,7 +410,8 @@ func (g *Graph) RemoveLabel(ctx context.Context, s *engine.Stmt, id uint64, labe
 // SetProperty writes one property of an entity; Null is a value.
 func (g *Graph) SetProperty(ctx context.Context, s *engine.Stmt, e Entity, id uint64, key string, v value.Value) error {
 	const op = "tacdb.SetProperty"
-	if err := g.exists(ctx, s, op, e, id); err != nil {
+	scopes, err := g.scopes(ctx, s, op, e, id)
+	if err != nil {
 		return err
 	}
 	p, err := g.encodeProp(op, key, v)
@@ -336,9 +423,11 @@ func (g *Graph) SetProperty(ctx context.Context, s *engine.Stmt, e Entity, id ui
 		return err
 	}
 	k := propertyKey(id, pid)
-	if _, ok, err := s.Get(ctx, e.slot(), k); err != nil {
+	old, had, err := s.Get(ctx, e.slot(), k)
+	if err != nil {
 		return err
-	} else if !ok {
+	}
+	if !had {
 		n := 0
 		lo, hi := propertyRange(id)
 		err := s.Range(ctx, e.slot(), lo, hi, func(_, _ []byte) error {
@@ -354,25 +443,72 @@ func (g *Graph) SetProperty(ctx context.Context, s *engine.Stmt, e Entity, id ui
 			return errs.Newf(errs.CodeLimitExceeded, op, "%d properties", n+1).With("limit", int64(g.MaxProperties))
 		}
 	}
-	return s.Put(ctx, e.slot(), k, p.b)
+	if err := s.Put(ctx, e.slot(), k, p.b); err != nil {
+		return err
+	}
+	set, err := g.Indexes.Get(ctx, s)
+	if err != nil {
+		return err
+	}
+	for _, ix := range indexed(set, e, scopes, pid) {
+		if had {
+			w, err := stored(old)
+			if err != nil {
+				return err
+			}
+			if err := index.Remove(ctx, s, ix, id, w); err != nil {
+				return err
+			}
+		}
+		if err := index.Insert(ctx, s, ix, id, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RemoveProperty removes one property of an entity; an absent one is a
 // no-op.
 func (g *Graph) RemoveProperty(ctx context.Context, s *engine.Stmt, e Entity, id uint64, key string) error {
-	if err := g.exists(ctx, s, "tacdb.RemoveProperty", e, id); err != nil {
+	scopes, err := g.scopes(ctx, s, "tacdb.RemoveProperty", e, id)
+	if err != nil {
 		return err
 	}
 	pid, ok, err := catalog.Lookup[catalog.PropertyID](ctx, s, key)
 	if err != nil || !ok {
 		return err
 	}
-	_, err = s.Delete(ctx, e.slot(), propertyKey(id, pid))
+	return g.deleteProp(ctx, s, e, id, scopes, propertyKey(id, pid), pid)
+}
+
+// deleteProp removes one property, if present, with its index entries.
+func (g *Graph) deleteProp(ctx context.Context, s *engine.Stmt, e Entity, id uint64, scopes []uint32, k []byte, pid catalog.PropertyID) error {
+	set, err := g.Indexes.Get(ctx, s)
+	if err != nil {
+		return err
+	}
+	if ixs := indexed(set, e, scopes, pid); len(ixs) > 0 {
+		b, ok, err := s.Get(ctx, e.slot(), k)
+		if err != nil || !ok {
+			return err
+		}
+		v, err := stored(b)
+		if err != nil {
+			return err
+		}
+		for _, ix := range ixs {
+			if err := index.Remove(ctx, s, ix, id, v); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = s.Delete(ctx, e.slot(), k)
 	return err
 }
 
-// deleteProps removes every property of an entity.
-func deleteProps(ctx context.Context, s *engine.Stmt, e Entity, id uint64) error {
+// deleteProps removes every property of an entity, with their index
+// entries.
+func (g *Graph) deleteProps(ctx context.Context, s *engine.Stmt, e Entity, id uint64, scopes []uint32) error {
 	var keys [][]byte
 	lo, hi := propertyRange(id)
 	if err := s.Range(ctx, e.slot(), lo, hi, func(k, _ []byte) error {
@@ -382,7 +518,8 @@ func deleteProps(ctx context.Context, s *engine.Stmt, e Entity, id uint64) error
 		return err
 	}
 	for _, k := range keys {
-		if _, err := s.Delete(ctx, e.slot(), k); err != nil {
+		pid := catalog.PropertyID(binary.BigEndian.Uint32(k[len(k)-4:]))
+		if err := g.deleteProp(ctx, s, e, id, scopes, k, pid); err != nil {
 			return err
 		}
 	}
@@ -416,7 +553,7 @@ func (g *Graph) CreateEdge(ctx context.Context, s *engine.Stmt, from, to uint64,
 	if err := link(ctx, s, edgeRecord{from, to, t}, id, 1); err != nil {
 		return 0, err
 	}
-	if err := g.putProps(ctx, s, EdgeEntity, id, enc); err != nil {
+	if err := g.putProps(ctx, s, EdgeEntity, id, []uint32{uint32(t)}, enc); err != nil {
 		return 0, err
 	}
 	return id, s.AddCounts(0, 1)
@@ -485,7 +622,7 @@ func (g *Graph) DeleteEdge(ctx context.Context, s *engine.Stmt, id uint64) error
 }
 
 func (g *Graph) deleteEdge(ctx context.Context, s *engine.Stmt, rec edgeRecord, id uint64) error {
-	if err := deleteProps(ctx, s, EdgeEntity, id); err != nil {
+	if err := g.deleteProps(ctx, s, EdgeEntity, id, []uint32{uint32(rec.typ)}); err != nil {
 		return err
 	}
 	if err := link(ctx, s, rec, id, -1); err != nil {
@@ -561,7 +698,7 @@ func (g *Graph) DeleteNode(ctx context.Context, s *engine.Stmt, id uint64, detac
 			return errs.Newf(errs.CodeCorrupt, op, "node %d has label %d without its entry", id, l)
 		}
 	}
-	if err := deleteProps(ctx, s, NodeEntity, id); err != nil {
+	if err := g.deleteProps(ctx, s, NodeEntity, id, labelScopes(rec.labels)); err != nil {
 		return err
 	}
 	if _, err := s.Delete(ctx, catalog.SlotNodes, recordKey(id)); err != nil {
