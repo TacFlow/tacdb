@@ -6,11 +6,11 @@ Policy (§25.1 and §28 of the specification): tacdb aims at functional and sema
 
 | Area | Policy (§28) | Status |
 |---|---|---|
-| Property/graph model | Parity, including absence/Null, lists/maps and edge IDs. | Values and codec ready (M1a); graph pending (M3). |
+| Property/graph model | Parity, including absence/Null, lists/maps and edge IDs. | Values and codec ready (M1a); nodes, edges, labels, properties, adjacency and degrees ready (M3b); property indexes pending (M3c). |
 | Cypher dialect of the pinned revision | Parity on the inventoried features. | Pending (M4). |
 | FTS/BM25/fuzzy | Functional parity; deterministic scores across platforms. | Pending (M5). |
 | HNSW | Same capabilities and metrics; topology is not a binary identity. | Pending (M8). |
-| Transactions | One mutating writer; parallel readers; adaptive group commit. | Ready in the internal engine (M2): FIFO writer queue, snapshots, O(1) savepoints, GroupSync, Sync and Async; the public API in M3. |
+| Transactions | One mutating writer; parallel readers; adaptive group commit. | Ready (M2): FIFO writer queue, snapshots, O(1) savepoints, GroupSync, Sync and Async; public API of handles and transactions (M3b). |
 | Physical maintenance | Passive checkpoint, segmented WAL, bitmap allocator, scrub, compact. | Page format and superblock (M1c), allocator (M1e), segmented WAL, passive checkpoint and scrub (M2) ready; compact pending (M9). |
 | Cluster/multiprocess | Mandatory in 1.0. | Pending (M10 to M12). |
 | Streams | Sequences, offsets, trim and atomicity preserved. | Pending (M6). |
@@ -34,6 +34,9 @@ Policy (§25.1 and §28 of the specification): tacdb aims at functional and sema
 | D-001 | Total order of values: Bool < number < String < Bytes < Vector < List < Map < Null. Int and Float compare by exact numeric value, without converting int64 to float64; NaN comes after every number and ties with any NaN; `-0` ties with `+0`. `Compare == 0` does not imply equal bits (`Int(1)` and `Float(1)` tie). | §5.3 fixes the families and asks for tacdb's own cases where R0 does not fix the behavior. | `value/compare_test.go` |
 | D-002 | Canonical codec: the decoder rejects map keys out of order or repeated, and non-minimal uvarints, as `CORRUPT`. | Every value has a single form (§5.3 and §7.1 of specification 1.3); goldens and signatures depend on it. | `internal/codec/value_test.go`, `internal/codec/uvarint_test.go`, `FuzzValue` |
 | D-003 | The REC-11 gate (an open after a crash over a database of 100 GiB) runs on Linux and macOS only. | It needs a sparse main file; on Windows that takes an explicit attribute, and the property it measures, a recovery that never reads the main file beyond its superblock, does not depend on the platform. | `internal/engine/gate_test.go` (`TestREC11`) |
+| D-004 | The graph methods of `Tx` take no context, as §6 declares them; they are bounded by `MaxWriteTxDuration` and `MaxReadTxAge`. `Commit` of a read transaction closes it and returns its snapshot with a zero token. Inside `View` and `Update`, `Commit` and `Rollback` fail with `INVALID_ARGUMENT`: the function owns the work, not the transaction; a call `fn` left running ends before the transaction does. `Close` with transactions open returns `BUSY`; a transaction that begins while `Close` checks fails with `SHUTTING_DOWN`. | §6 leaves these cases open. | `db_test.go` (`TestUpdate`, `TestTransactions`) |
+| D-005 | `EdgeCursor` reads the adjacency in batches of 64 entries, each one operation of its transaction that resumes after the last key it gave, and checks its transaction before each edge: after `Commit`, `Rollback` or an expired snapshot it fails at once (`TX_CLOSED`, `SNAPSHOT_EXPIRED`). Inside a write transaction it yields the edges that existed when it was opened and still exist when it reaches them, so writing during the walk never feeds it. Edges come grouped by direction (outgoing, then incoming) and type, in peer and edge order. | Without a live cursor in the engine, a resumable cursor keeps revocation cooperative (§10.1); the rule for writes does not depend on the batch size. | `internal/graph/graph_test.go` (`TestCursorBatches`, `TestCursorExpires`), `cursor_test.go` |
+| D-006 | The canonical dump writes one line per node, then per edge, in ID order: labels in insertion order, properties by name, values typed and exact (`1` is Int, `float(1)` Float; `-0`, infinities and NaN bits kept). | The dump of §25.1 compares content and keeps the bits of properties. | `internal/graph/graph_test.go` (`TestDumpValues`) |
 
 ## 3. Recorded divergences from R0
 

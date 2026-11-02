@@ -295,17 +295,17 @@ Implementation: `internal/catalog`. The State holds 19 roots; slots 19 to 31 are
 
 | Slot | Tree | Key → value |
 |---:|---|---|
-| 0 | Nodes | node records and properties (M3b) |
-| 1 | Adjacency | adjacency entries (M3b) |
-| 2 | Labels | label membership (M3b) |
+| 0 | Nodes | `(node u64, 0)` → node record; `(node u64, 1, property u32)` → Value (§13.3) |
+| 1 | Adjacency | `(node u64, direction u8, type u32, peer u64, edge u64)` → empty (§13.3) |
+| 2 | Labels | `(label u32, node u64)` → empty |
 | 3 | SymbolsForward | `(kind u8, name string)` → `id` u32 big-endian |
 | 4 | SymbolsReverse | `(kind u8, id u32)` → name, UTF-8 bytes |
 | 5–8 | FTSRuns, FTSPostings, FTSDocs, VectorMeta | later milestones |
-| 9 | Edges | edge records and properties (M3b) |
+| 9 | Edges | `(edge u64, 0)` → edge record; `(edge u64, 1, property u32)` → Value (§13.3) |
 | 10–12 | StreamMeta, StreamEvents, StreamOffsets | later milestones |
 | 13 | Catalog | `(prefix u8, …)` → record (§13.1) |
 | 14, 15 | NodeProperty, EdgeProperty | property index entries (M3c) |
-| 16 | Stats | `(prefix u8, …)` → record or counter (M3b) |
+| 16 | Stats | `(prefix u8, …)` → record or counter; prefix 2 holds degrees (§13.3) |
 | 17 | Sessions | later milestones |
 | 18 | Maintenance | `(prefix u8, …)` → record (M3d) |
 
@@ -320,3 +320,17 @@ Catalog prefixes: 1 configuration, 2 index declarations, 3 analyzer versions, 4 
 Three namespaces: label (kind 1), property (2) and edge type (3). An identifier is a u32 counted from 1 in its namespace; 0 is reserved. A name is valid UTF-8, not empty, without NUL and at most 255 bytes.
 
 The watermark of a namespace is the Catalog record at key `(5, kind)`, version 1, with one required field `hwm` (Int): the largest identifier handed out. A new symbol takes `hwm + 1`, writes its forward and reverse entries and the new watermark in the same commit, and raises the State's `symbolHWM`, which is the largest watermark of the three namespaces and only checks them: a namespace watermark above it, or an identifier above a watermark, is corruption. Symbols are never removed. `MaxSymbolsPerNamespace` (default 1,000,000) limits each namespace.
+
+### 13.3 Graph
+
+Implementation: `internal/graph`. Integers inside records are little-endian; keys follow §4.
+
+A node record is `version` u16 (2), a reserved u16 (0), `labelCount` u32 and that many label identifiers (u32), in insertion order, none zero or repeated. An edge record is 28 bytes: `version` u16 (2), a reserved u16 (0), `source` u64, `target` u64, the edge type identifier u32 and a reserved u32 (0). A reader rejects an older version, reserved bits or a wrong length (`CORRUPT`) and a newer version (`UNSUPPORTED_FORMAT`).
+
+Each property is its own entry `(entity, 1, property)` whose value is the codec form (§2) of the Value; an absent entry is an absent property, and a stored Null is a value. The record and the properties of an entity are contiguous, and identifiers are never reused.
+
+An edge has two adjacency entries: `(source, 0, type, target, edge)` and `(target, 1, type, source, edge)`, also when source and target are the same node.
+
+A degree counter is the Stats entry `(2, node u64, direction u8, type u32)` → count u64, never zero: the entry is removed when the count reaches zero. Direction 0 counts outgoing entries, 1 incoming entries and 2 self-loops; type 0 counts every type. The undirected degree is outgoing + incoming − self-loops, so a self-loop counts once. Counters change in the commit that changes the edges.
+
+The State's `nodeCount` and `edgeCount` are the live nodes and edges.
