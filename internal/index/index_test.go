@@ -396,14 +396,35 @@ func TestDeclarations(t *testing.T) {
 	if _, ok := set.Named("b-index"); ok || len(set.All()) != 1 {
 		t.Fatal("the writer does not see its Drop")
 	}
+	// The entries go in batches, by a purge the drop scheduled.
 	p := indexPrefix(a.ID)
-	n := 0
-	tx.Range(ctx, a.Entity.Slot(), p, codec.PrefixEnd(p), func(_, _ []byte) error { n++; return nil })
-	if n != 0 {
-		t.Fatalf("Drop left %d entries", n)
+	count := func() int {
+		n := 0
+		tx.Range(ctx, a.Entity.Slot(), p, codec.PrefixEnd(p), func(_, _ []byte) error { n++; return nil })
+		return n
+	}
+	purges, err := Purges(ctx, tx)
+	if err != nil || len(purges) != 1 || purges[0] != (Purge{a.ID, Nodes}) || count() != 10 {
+		t.Fatalf("after Drop: purges %v, %v, %d entries", purges, err, count())
+	}
+	for i := 0; ; i++ {
+		var done bool
+		do(t, tx, func(s *engine.Stmt) (err error) { done, err = PurgeBatch(ctx, s, purges[0], 3); return err })
+		if done {
+			if i != 3 {
+				t.Fatalf("10 entries took %d batches of 3", i+1)
+			}
+			break
+		}
+		if count() != 10-3*(i+1) {
+			t.Fatalf("batch %d left %d entries", i, count())
+		}
+	}
+	if left, _ := Purges(ctx, tx); len(left) != 0 || count() != 0 {
+		t.Fatalf("after the purge: purges %v, %d entries", left, count())
 	}
 	if got, _ := Entries(ctx, tx, a); got != 0 {
-		t.Fatalf("Drop left the counter at %d", got)
+		t.Fatalf("the purge left the counter at %d", got)
 	}
 	c2 := declare(t, tx, "b-index", false, 896)
 	if c2.ID != 3 {
