@@ -284,6 +284,18 @@ func (t *ReadTx) Range(ctx context.Context, slot int, lo, hi []byte, fn func(k, 
 	return btree.Range(ctx, t.view, t.pins, t.dir.State.Roots[slot], lo, hi, fn)
 }
 
+// RangeReverse is Range in descending key order.
+func (t *ReadTx) RangeReverse(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error {
+	if err := checkSlot(slot); err != nil {
+		return err
+	}
+	if err := t.begin("engine.RangeReverse"); err != nil {
+		return err
+	}
+	defer t.snap.exitOp(&t.db.reg)
+	return btree.RangeReverse(ctx, t.view, t.pins, t.dir.State.Roots[slot], lo, hi, fn)
+}
+
 // Check reports whether the transaction can still be used: open, its
 // snapshot neither revoked nor older than MaxReadTxAge.
 func (t *ReadTx) Check() error {

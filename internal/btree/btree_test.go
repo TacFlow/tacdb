@@ -196,6 +196,26 @@ func (e *env) seeks(key []byte) {
 	if err := e.tree.Range(ctx, e.pins, key, hi, func(k, v []byte) error { got++; return nil }); err != nil || got != want {
 		e.t.Fatalf("Range [%q, +0xff): %d keys, %v; want %d", short(key), got, err, want)
 	}
+	// Reverse walks: [key, hi) and everything below key, against the model.
+	for _, w := range []struct{ lo, hi []byte }{{key, hi}, {nil, key}, {nil, nil}} {
+		var got []string
+		err := e.tree.RangeReverse(ctx, e.pins, w.lo, w.hi, func(k, v []byte) error {
+			if !bytes.Equal(v, []byte(e.model[string(k)])) {
+				e.t.Fatalf("RangeReverse: value of %q differs", short(k))
+			}
+			got = append(got, string(k))
+			return nil
+		})
+		var want []string
+		for _, k := range slices.Backward(keys) {
+			if (w.lo == nil || k >= string(w.lo)) && (w.hi == nil || k < string(w.hi)) {
+				want = append(want, k)
+			}
+		}
+		if err != nil || !slices.Equal(got, want) {
+			e.t.Fatalf("RangeReverse [%q, %q): %d keys, %v; want %d", short(w.lo), short(w.hi), len(got), err, len(want))
+		}
+	}
 	e.noPins()
 }
 
