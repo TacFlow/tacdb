@@ -132,6 +132,78 @@ func set[V Value](n *node[V], level int, k uint64, v V) *node[V] {
 	return c
 }
 
+// SetAll returns a Tree where each keys[i] maps to vals[i]. The keys are
+// strictly increasing; each node on their paths is copied once, not once
+// per key.
+func (t Tree[V]) SetAll(keys []uint64, vals []V) Tree[V] {
+	if len(keys) == 0 {
+		return t
+	}
+	if t.root == nil {
+		t.height = 1
+	}
+	for !fits(keys[len(keys)-1], t.height) { // grow: the old root becomes child 0
+		if t.root != nil && t.root.size > 0 {
+			t.root = &node[V]{bitmap: 1, kids: []*node[V]{t.root}, max: t.root.max, size: t.root.size}
+		}
+		t.height++
+	}
+	t.root = setAll(t.root, t.height-1, keys, vals)
+	return t
+}
+
+func setAll[V Value](n *node[V], level int, keys []uint64, vals []V) *node[V] {
+	c := &node[V]{}
+	if n != nil {
+		*c = *n
+	}
+	bm := c.bitmap
+	for _, k := range keys {
+		bm |= 1 << slot(k, level)
+	}
+	count := bits.OnesCount64(bm)
+	old, next := 0, 0 // positions in the slots of n and in keys
+	if level == 0 {
+		vs := make([]V, 0, count)
+		for b := bm; b != 0; b &= b - 1 {
+			s := uint(bits.TrailingZeros64(b))
+			if next < len(keys) && slot(keys[next], 0) == s {
+				vs = append(vs, vals[next])
+				next++
+			} else {
+				vs = append(vs, c.vals[old])
+			}
+			if c.bitmap&(1<<s) != 0 {
+				old++
+			}
+		}
+		c.vals = vs
+	} else {
+		kids := make([]*node[V], 0, count)
+		for b := bm; b != 0; b &= b - 1 {
+			s := uint(bits.TrailingZeros64(b))
+			var child *node[V]
+			if c.bitmap&(1<<s) != 0 {
+				child = c.kids[old]
+				old++
+			}
+			end := next
+			for end < len(keys) && slot(keys[end], level) == s {
+				end++
+			}
+			if end > next {
+				child = setAll(child, level-1, keys[next:end], vals[next:end])
+				next = end
+			}
+			kids = append(kids, child)
+		}
+		c.kids = kids
+	}
+	c.bitmap = bm
+	c.summarize()
+	return c
+}
+
 // summarize recomputes the summary of a node from its slots.
 func (n *node[V]) summarize() {
 	n.max, n.size = 0, 0

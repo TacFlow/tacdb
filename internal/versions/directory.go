@@ -1,6 +1,8 @@
 package versions
 
 import (
+	"cmp"
+	"slices"
 	"sync/atomic"
 
 	"github.com/TacFlow/tacdb/internal/page"
@@ -119,11 +121,16 @@ type Version struct {
 // versions. Recovery applies the groups it reads; finalization applies a
 // transaction.
 func (d *Directory) Apply(state wal.State, versions []Version) *Directory {
-	n := &Directory{State: state, pages: d.pages, sweep: d.sweep}
-	for _, v := range versions {
-		n.pages = n.pages.Set(uint64(v.ID), v.Loc)
+	vs := slices.Clone(versions)
+	slices.SortStableFunc(vs, func(a, b Version) int { return cmp.Compare(a.ID, b.ID) })
+	keys, locs := make([]uint64, 0, len(vs)), make([]Loc, 0, len(vs))
+	for i, v := range vs {
+		if i+1 < len(vs) && vs[i+1].ID == v.ID {
+			continue // a later version of the same page wins
+		}
+		keys, locs = append(keys, uint64(v.ID)), append(locs, v.Loc)
 	}
-	return n
+	return &Directory{State: state, pages: d.pages.SetAll(keys, locs), sweep: d.sweep}
 }
 
 // Prune drops up to budget nodes of entries with a CommitID at or below
