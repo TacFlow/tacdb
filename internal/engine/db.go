@@ -309,12 +309,15 @@ func (db *DB) recover(ctx context.Context) error {
 	dir := checkpointed
 	var begins []wal.Begin
 	var buf page.Buf
+	// The directories between groups are never used: the versions of every
+	// group go into the directory of the last one in one pass, later pages
+	// over earlier ones.
+	var vs []versions.Version
 	for _, g := range res.Groups {
 		if err := ctx.Err(); err != nil {
 			return ctxErr(err, op)
 		}
-		vs := make([]versions.Version, len(g.Pages))
-		for i, p := range g.Pages {
+		for _, p := range g.Pages {
 			// Every recovered page is verified: the log may hold pages
 			// with a valid record CRC but a broken structure.
 			f, err := db.segment(p.Loc.Seq)
@@ -327,11 +330,13 @@ func (db *DB) recover(ctx context.Context) error {
 			if err := page.Verify(&buf, p.ID, g.Commit.State.PageCount); err != nil {
 				return errs.Wrap(errs.CodeCorrupt, op, err, "a page of the log")
 			}
-			vs[i] = versions.Version{ID: p.ID, Loc: versions.WALLoc(p.CommitID, p.Loc)}
+			vs = append(vs, versions.Version{ID: p.ID, Loc: versions.WALLoc(p.CommitID, p.Loc)})
 		}
-		dir = dir.Apply(g.Commit.State, vs)
-		dir.CommitLSN = g.CommitLSN
 		begins = append(begins, g.Begins...)
+	}
+	if n := len(res.Groups); n > 0 {
+		dir = dir.Apply(res.Groups[n-1].Commit.State, vs)
+		dir.CommitLSN = res.Groups[n-1].CommitLSN
 	}
 	st := &dir.State
 	for _, r := range res.Reserves { // also those of a discarded tail: they only skip IDs
