@@ -76,6 +76,9 @@ type DB struct {
 	fs vfs.FS
 	g  *graph.Graph
 
+	work     workers
+	readOnly bool
+
 	mu     sync.Mutex // serializes Close
 	closed bool
 }
@@ -118,8 +121,17 @@ func open(fs vfs.FS, name string, opts Options) (*DB, error) {
 		Symbols:          catalog.NewCache(symbolCacheSize),
 		Indexes:          &index.Cache{},
 	}
-	return &DB{e: e, fs: fs, g: g}, nil
+	db := &DB{e: e, fs: fs, g: g, readOnly: opts.ReadOnly}
+	db.work = workers{db: db, batchBytes: min(opts.IndexBuildBatchBytes, opts.MaxTxBytes/2), purgeBatch: purgeBatch}
+	if !opts.ReadOnly {
+		db.work.start()
+	}
+	return db, nil
 }
+
+// purgeBatch is how many entries of a dropped or failed index one purge
+// transaction removes.
+const purgeBatch = 1024
 
 // symbolCacheSize bounds the symbols a handle remembers per direction.
 const symbolCacheSize = 1 << 16
@@ -204,7 +216,7 @@ func (db *DB) Update(ctx context.Context, fn func(*Tx) error) error {
 	}
 	tx.acquire() // a call fn left running ends before the commit
 	held = true
-	if _, err := tx.w.Commit(ctx); err != nil {
+	if _, err := tx.commit(ctx); err != nil {
 		return err
 	}
 	ok = true
@@ -243,8 +255,14 @@ func (db *DB) Close() error {
 	if db.closed {
 		return nil
 	}
+	// The background builds and purges stop first; with the handle still
+	// busy, they start again where they were.
+	db.work.stop()
 	err := db.e.CloseIdle()
 	if errs.CodeOf(err) == errs.CodeBusy {
+		if !db.readOnly {
+			db.work.start()
+		}
 		return err
 	}
 	db.closed = true

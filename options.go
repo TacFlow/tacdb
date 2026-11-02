@@ -90,6 +90,9 @@ type Options struct {
 	// keeps a prefix of a String or Bytes value and a hash (SPEC §12.2).
 	// Each index keeps the value it was created with.
 	IndexKeyPrefixBytes int
+	// IndexBuildBatchBytes bounds each batch of BuildIndex; a batch never
+	// takes more than half of MaxTxBytes.
+	IndexBuildBatchBytes int64
 	// ValueLimits bound each property value: depth, encoded bytes,
 	// elements, map key bytes and vector dimensions.
 	ValueLimits value.Limits
@@ -129,6 +132,7 @@ func DefaultOptions() Options {
 		MaxLabelsPerNode:          graph.DefaultMaxLabels,
 		MaxPropertiesPerEntity:    graph.DefaultMaxProperties,
 		IndexKeyPrefixBytes:       index.DefaultPrefixBytes,
+		IndexBuildBatchBytes:      DefaultIndexBuildBatchBytes,
 		ValueLimits:               value.DefaultLimits(),
 	}
 }
@@ -165,6 +169,8 @@ func (o Options) check() error {
 		return bad("MaxPropertiesPerEntity")
 	case o.IndexKeyPrefixBytes < index.MinPrefixBytes || o.IndexKeyPrefixBytes > index.MaxPrefixBytes:
 		return bad("IndexKeyPrefixBytes")
+	case o.IndexBuildBatchBytes <= 0:
+		return bad("IndexBuildBatchBytes")
 	}
 	return o.ValueLimits.Check()
 }
