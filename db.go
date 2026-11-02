@@ -9,6 +9,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/graph"
+	"github.com/TacFlow/tacdb/internal/index"
 	"github.com/TacFlow/tacdb/internal/vfs"
 	"github.com/TacFlow/tacdb/value"
 )
@@ -109,11 +110,13 @@ func open(fs vfs.FS, name string, opts Options) (*DB, error) {
 		return nil, err
 	}
 	g := &graph.Graph{
-		MaxSymbols:    opts.MaxSymbolsPerNamespace,
-		MaxLabels:     opts.MaxLabelsPerNode,
-		MaxProperties: opts.MaxPropertiesPerEntity,
-		Limits:        opts.ValueLimits,
-		Symbols:       catalog.NewCache(symbolCacheSize),
+		MaxSymbols:       opts.MaxSymbolsPerNamespace,
+		MaxLabels:        opts.MaxLabelsPerNode,
+		MaxProperties:    opts.MaxPropertiesPerEntity,
+		Limits:           opts.ValueLimits,
+		IndexPrefixBytes: opts.IndexKeyPrefixBytes,
+		Symbols:          catalog.NewCache(symbolCacheSize),
+		Indexes:          &index.Cache{},
 	}
 	return &DB{e: e, fs: fs, g: g}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -274,6 +275,29 @@ func TestCursorInvalidation(t *testing.T) {
 	if c, err = e.tree.SeekGT(ctx, e.pins, []byte("k10")); err != nil || string(c.Key()) != "k11" {
 		t.Fatalf("SeekGT after the restore: %v", err)
 	}
+
+	// A reverse walk whose fn changes its tree fails after that call.
+	n := 0
+	err = e.tree.RangeReverse(ctx, e.pins, nil, nil, func(k, _ []byte) error {
+		if n++; n == 2 {
+			e.put([]byte("k97"), []byte("v"))
+		}
+		return nil
+	})
+	if !isCode(err, errs.CodeInvalidArgument) || n != 2 {
+		t.Fatalf("RangeReverse changing its tree: %d calls, %v", n, err)
+	}
+	stop := errors.New("stop")
+	n = 0
+	err = e.tree.RangeReverse(ctx, e.pins, []byte("k10"), nil, func(k, _ []byte) error {
+		if n++; string(k) == "k47" {
+			return stop
+		}
+		return nil
+	})
+	if err != stop || n != 5 { // k99, k97, k49, k48, k47
+		t.Fatalf("RangeReverse stopped by fn: %d calls, %v", n, err)
+	}
 }
 
 // BT-04: values from 1 KiB to 16 MiB round-trip; a value above
@@ -374,6 +398,8 @@ func exerciseForged(t *testing.T, fs vfs.FS) {
 	root := st.Roots[0]
 	btree.Verify(ctx, s.Reader(), pins, root)
 	btree.Range(ctx, s.Reader(), pins, root, nil, nil, func(k, v []byte) error { return nil })
+	btree.RangeReverse(ctx, s.Reader(), pins, root, nil, nil, func(k, v []byte) error { return nil })
+	btree.RangeReverse(ctx, s.Reader(), pins, root, []byte("key/0100"), []byte("key/0200"), func(k, v []byte) error { return nil })
 	for i := 0; i < 300; i += 37 {
 		btree.Get(ctx, s.Reader(), pins, root, []byte(fmt.Sprintf("key/%04d", i)))
 	}

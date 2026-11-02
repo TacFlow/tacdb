@@ -38,9 +38,7 @@ func recordKey(id uint64) []byte {
 	return codec.AppendKeyUint8(entityKey(id), tagRecord)
 }
 
-func propertyKey(id uint64, prop catalog.PropertyID) []byte {
-	return codec.AppendKeyUint32(codec.AppendKeyUint8(entityKey(id), tagProperty), uint32(prop))
-}
+func propertyKey(id uint64, prop catalog.PropertyID) []byte { return catalog.PropertyKey(id, prop) }
 
 // propertyRange bounds the properties of one entity.
 func propertyRange(id uint64) (lo, hi []byte) {

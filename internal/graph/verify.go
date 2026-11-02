@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"encoding/binary"
 	"maps"
 	"slices"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/codec"
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
+	"github.com/TacFlow/tacdb/internal/index"
 )
 
 // Verify recounts the graph that r reads and checks that the derived
@@ -36,6 +38,12 @@ func (g *Graph) Verify(ctx context.Context, r engine.Reader) error {
 		}
 		return err
 	}
+	set, err := g.Indexes.Get(ctx, r)
+	if err != nil {
+		return err
+	}
+	scopesOf := [2]map[uint64][]uint32{{}, {}}         // by entity kind, the scopes of each entity
+	propsOf := [2]map[uint64]map[uint32][]byte{{}, {}} // and its encoded properties
 	labels := map[string]bool{}
 	nodes := map[uint64]bool{}
 	adj := map[string]bool{}
@@ -61,6 +69,7 @@ func (g *Graph) Verify(ctx context.Context, r engine.Reader) error {
 						return err
 					}
 					nodes[id] = true
+					scopesOf[e][id] = labelScopes(rec.labels)
 					for _, l := range rec.labels {
 						if err := named(catalog.KindLabel, uint32(l)); err != nil {
 							return err
@@ -80,6 +89,7 @@ func (g *Graph) Verify(ctx context.Context, r engine.Reader) error {
 					return err
 				}
 				edges++
+				scopesOf[e][id] = []uint32{uint32(rec.typ)}
 				adj[string(adjacencyKey(rec.from, dirOut, rec.typ, rec.to, id))] = true
 				adj[string(adjacencyKey(rec.to, dirIn, rec.typ, rec.from, id))] = true
 				for _, t := range []catalog.EdgeTypeID{0, rec.typ} {
@@ -98,8 +108,14 @@ func (g *Graph) Verify(ctx context.Context, r engine.Reader) error {
 			if err := named(catalog.KindProperty, pid); err != nil {
 				return err
 			}
-			_, err = g.decode(v)
-			return err
+			if _, err = stored(v); err != nil {
+				return err
+			}
+			if propsOf[e][id] == nil {
+				propsOf[e][id] = map[uint32][]byte{}
+			}
+			propsOf[e][id][pid] = slices.Clone(v)
+			return nil
 		})
 		if err != nil {
 			return err
@@ -152,6 +168,81 @@ func (g *Graph) Verify(ctx context.Context, r engine.Reader) error {
 			if _, ok := deg[k]; !ok {
 				return bad("degree %x is %d without edges", []byte(k), got[k])
 			}
+		}
+	}
+	return g.verifyIndexes(ctx, r, set, scopesOf, propsOf)
+}
+
+// verifyIndexes checks that every maintained index holds exactly the
+// entries a rebuild from the records gives, with its counter, and that no
+// entry belongs to another index.
+func (g *Graph) verifyIndexes(ctx context.Context, r engine.Reader, set *index.Set,
+	scopesOf [2]map[uint64][]uint32, propsOf [2]map[uint64]map[uint32][]byte) error {
+	bad := func(format string, args ...any) error {
+		return errs.Newf(errs.CodeCorrupt, "graph.Verify", format, args...)
+	}
+	owned := map[uint64]index.Entity{}
+	for _, ix := range set.All() {
+		if ix.State == index.Building || ix.State == index.Online {
+			owned[ix.ID] = ix.Entity
+		}
+	}
+	for _, e := range []Entity{NodeEntity, EdgeEntity} {
+		if err := r.Range(ctx, e.index().Slot(), nil, nil, func(k, _ []byte) error {
+			if len(k) < 8 {
+				return bad("index entry %x", k)
+			}
+			if ent, ok := owned[binary.BigEndian.Uint64(k)]; !ok || ent != e.index() {
+				return bad("index entry %x of no maintained index", k)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	for _, ix := range set.All() {
+		if ix.State != index.Building && ix.State != index.Online {
+			continue
+		}
+		e := NodeEntity
+		if ix.Entity == index.Edges {
+			e = EdgeEntity
+		}
+		want := map[string]bool{}
+		for id, scopes := range scopesOf[e] {
+			b, ok := propsOf[e][id][uint32(ix.Property)]
+			if !ok || !slices.Contains(scopes, ix.Scope) {
+				continue
+			}
+			v, err := stored(b)
+			if err != nil {
+				return err
+			}
+			k, err := index.EntryKey(ix, id, v)
+			if err != nil {
+				return bad("index %q: entity %d holds a value it cannot index: %v", ix.Name, id, err)
+			}
+			want[string(k)] = true
+		}
+		n := 0
+		p := codec.AppendKeyUint64(nil, ix.ID)
+		if err := r.Range(ctx, ix.Entity.Slot(), p, codec.PrefixEnd(p), func(k, v []byte) error {
+			if !want[string(k)] || len(v) != 0 {
+				return bad("index %q holds entry %x that no record implies", ix.Name, k)
+			}
+			n++
+			return nil
+		}); err != nil {
+			return err
+		}
+		if n != len(want) {
+			return bad("index %q holds %d entries, the records imply %d", ix.Name, n, len(want))
+		}
+		if c, err := index.Entries(ctx, r, ix); err != nil || c != uint64(n) {
+			if err == nil {
+				err = bad("index %q counts %d entries, holds %d", ix.Name, c, n)
+			}
+			return err
 		}
 	}
 	return nil

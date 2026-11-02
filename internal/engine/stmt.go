@@ -12,6 +12,8 @@ import (
 type Reader interface {
 	Get(ctx context.Context, slot int, key []byte) ([]byte, bool, error)
 	Range(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error
+	// RangeReverse is Range in descending key order.
+	RangeReverse(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error
 	State() wal.State
 	// Check reports whether the reader can still be used: TX_CLOSED,
 	// WRITE_TX_TIMEOUT or SNAPSHOT_EXPIRED otherwise.
@@ -71,6 +73,9 @@ func (tx *WriteTx) Statement(op string, fn func(s *Stmt) error) (err error) {
 	return err
 }
 
+// Base returns the state the transaction derives from.
+func (s *Stmt) Base() wal.State { return s.tx.Base() }
+
 // Check reports whether the statement can still be used.
 func (s *Stmt) Check() error { return s.usable() }
 
@@ -120,6 +125,28 @@ func (s *Stmt) Range(ctx context.Context, slot int, lo, hi []byte, fn func(k, v 
 		return err
 	}
 	return t.Range(ctx, s.tx.pins, lo, hi, fn)
+}
+
+// RangeReverse is Range in descending key order.
+func (s *Stmt) RangeReverse(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error {
+	t, err := s.tree(slot)
+	if err != nil {
+		return err
+	}
+	return t.RangeReverse(ctx, s.tx.pins, lo, hi, fn)
+}
+
+// CheckLimit fails with LIMIT_EXCEEDED once the transaction holds more
+// than MaxTxBytes, for long statements that check before their end.
+func (s *Stmt) CheckLimit() error {
+	if err := s.usable(); err != nil {
+		return err
+	}
+	if s.tx.res.Bytes() > s.tx.db.opts.MaxTxBytes {
+		return errs.Newf(errs.CodeLimitExceeded, s.op, "the transaction holds more than MaxTxBytes").
+			With("limit", s.tx.db.opts.MaxTxBytes)
+	}
+	return nil
 }
 
 // Put writes key.
@@ -209,4 +236,13 @@ func (tx *WriteTx) Range(ctx context.Context, slot int, lo, hi []byte, fn func(k
 		return err
 	}
 	return t.Range(ctx, tx.pins, lo, hi, fn)
+}
+
+// RangeReverse is Range in descending key order.
+func (tx *WriteTx) RangeReverse(ctx context.Context, slot int, lo, hi []byte, fn func(k, v []byte) error) error {
+	t, err := tx.Tree(slot)
+	if err != nil {
+		return err
+	}
+	return t.RangeReverse(ctx, tx.pins, lo, hi, fn)
 }

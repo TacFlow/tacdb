@@ -129,3 +129,9 @@ func (s *Schema) Decode(b []byte) (map[string]value.Value, error) {
 	}
 	return out, nil
 }
+
+// PropertyKey is the key of property prop of entity id in the Nodes or
+// Edges tree: (id, 1, prop) (FORMAT.md §13.3).
+func PropertyKey(id uint64, prop PropertyID) []byte {
+	return codec.AppendKeyUint32(codec.AppendKeyUint8(codec.AppendKeyUint64(nil, id), 1), uint32(prop))
+}

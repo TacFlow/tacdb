@@ -7,6 +7,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/graph"
+	"github.com/TacFlow/tacdb/internal/index"
 	"github.com/TacFlow/tacdb/value"
 )
 
@@ -85,6 +86,10 @@ type Options struct {
 	MaxSymbolsPerNamespace uint32
 	MaxLabelsPerNode       int
 	MaxPropertiesPerEntity int
+	// IndexKeyPrefixBytes is the escaped length past which an index entry
+	// keeps a prefix of a String or Bytes value and a hash (SPEC §12.2).
+	// Each index keeps the value it was created with.
+	IndexKeyPrefixBytes int
 	// ValueLimits bound each property value: depth, encoded bytes,
 	// elements, map key bytes and vector dimensions.
 	ValueLimits value.Limits
@@ -123,6 +128,7 @@ func DefaultOptions() Options {
 		MaxSymbolsPerNamespace:    catalog.DefaultMaxSymbols,
 		MaxLabelsPerNode:          graph.DefaultMaxLabels,
 		MaxPropertiesPerEntity:    graph.DefaultMaxProperties,
+		IndexKeyPrefixBytes:       index.DefaultPrefixBytes,
 		ValueLimits:               value.DefaultLimits(),
 	}
 }
@@ -157,6 +163,8 @@ func (o Options) check() error {
 		return bad("MaxLabelsPerNode")
 	case o.MaxPropertiesPerEntity <= 0:
 		return bad("MaxPropertiesPerEntity")
+	case o.IndexKeyPrefixBytes < index.MinPrefixBytes || o.IndexKeyPrefixBytes > index.MaxPrefixBytes:
+		return bad("IndexKeyPrefixBytes")
 	}
 	return o.ValueLimits.Check()
 }
