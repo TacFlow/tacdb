@@ -64,6 +64,16 @@ func TestNumberSeeksExact(t *testing.T) {
 		}
 		return nil
 	})
+	// The seeks read a committed snapshot: under -race they outlast
+	// MaxWriteTxDuration.
+	if _, err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	rd, err := db.BeginRead(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rd.Close()
 	cmpExact := func(a, b value.Value) int { return rat(a).Cmp(rat(b)) }
 	order := func(desc bool) func(a, b Hit) int {
 		return func(a, b Hit) int {
@@ -86,7 +96,7 @@ func TestNumberSeeksExact(t *testing.T) {
 			}
 		}
 		slices.SortFunc(want, order(q.Desc))
-		got, err := seekAll(tx, ix, q)
+		got, err := seekAll(rd, ix, q)
 		if err != nil {
 			t.Fatalf("%+v: %v", q, err)
 		}
@@ -177,6 +187,14 @@ func TestTextGroupsAcrossBatches(t *testing.T) {
 				}
 				return nil
 			})
+			if _, err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
+			rd, err := db.BeginRead(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rd.Close()
 			pick := func() string {
 				e := uint64(r.IntN(700) + 1)
 				v := vals[e]
@@ -235,7 +253,7 @@ func TestTextGroupsAcrossBatches(t *testing.T) {
 					}
 					return c
 				})
-				got, err := seekAll(tx, ix, q)
+				got, err := seekAll(rd, ix, q)
 				if err != nil {
 					t.Fatal(err)
 				}

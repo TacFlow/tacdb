@@ -181,11 +181,21 @@ func (g *Graph) verifyIndexes(ctx context.Context, r engine.Reader, set *index.S
 	bad := func(format string, args ...any) error {
 		return errs.Newf(errs.CodeCorrupt, "graph.Verify", format, args...)
 	}
-	owned := map[uint64]index.Entity{}
+	owned := map[uint64]index.Entity{} // indexes whose entries may exist
 	for _, ix := range set.All() {
 		if ix.State == index.Building || ix.State == index.Online {
 			owned[ix.ID] = ix.Entity
 		}
+	}
+	purges, err := index.Purges(ctx, r)
+	if err != nil {
+		return err
+	}
+	for _, p := range purges {
+		if _, ok := owned[p.ID]; ok {
+			return bad("index %d is kept and purged at once", p.ID)
+		}
+		owned[p.ID] = p.Entity
 	}
 	for _, e := range []Entity{NodeEntity, EdgeEntity} {
 		if err := r.Range(ctx, e.index().Slot(), nil, nil, func(k, _ []byte) error {
@@ -209,6 +219,7 @@ func (g *Graph) verifyIndexes(ctx context.Context, r engine.Reader, set *index.S
 			e = EdgeEntity
 		}
 		want := map[string]bool{}
+		owner := map[string]uint64{} // the entity of each wanted entry
 		for id, scopes := range scopesOf[e] {
 			b, ok := propsOf[e][id][uint32(ix.Property)]
 			if !ok || !slices.Contains(scopes, ix.Scope) {
@@ -223,19 +234,24 @@ func (g *Graph) verifyIndexes(ctx context.Context, r engine.Reader, set *index.S
 				return bad("index %q: entity %d holds a value it cannot index: %v", ix.Name, id, err)
 			}
 			want[string(k)] = true
+			owner[string(k)] = id
 		}
 		n := 0
+		held := map[string]bool{}
 		p := codec.AppendKeyUint64(nil, ix.ID)
 		if err := r.Range(ctx, ix.Entity.Slot(), p, codec.PrefixEnd(p), func(k, v []byte) error {
 			if !want[string(k)] || len(v) != 0 {
 				return bad("index %q holds entry %x that no record implies", ix.Name, k)
 			}
+			held[string(k)] = true
 			n++
 			return nil
 		}); err != nil {
 			return err
 		}
-		if n != len(want) {
+		// A building index holds a part of the rebuild: what its batches
+		// and the writers inserted, as its build counts them.
+		if ix.State == index.Online && n != len(want) {
 			return bad("index %q holds %d entries, the records imply %d", ix.Name, n, len(want))
 		}
 		if c, err := index.Entries(ctx, r, ix); err != nil || c != uint64(n) {
@@ -243,6 +259,22 @@ func (g *Graph) verifyIndexes(ctx context.Context, r engine.Reader, set *index.S
 				err = bad("index %q counts %d entries, holds %d", ix.Name, c, n)
 			}
 			return err
+		}
+		if ix.State == index.Building {
+			st, ok, err := index.ReadBuild(ctx, r, ix)
+			if err != nil {
+				return err
+			}
+			if !ok || int64(st.Scanned)+st.WriterDelta != int64(n) {
+				return bad("index %q holds %d entries, its build counts %d", ix.Name, n, int64(st.Scanned)+st.WriterDelta)
+			}
+			// The batches reached the cursor: every entity up to it has
+			// its entry.
+			for k, id := range owner {
+				if id <= st.Cursor && !held[k] {
+					return bad("index %q lacks the entry of %d, below its cursor %d", ix.Name, id, st.Cursor)
+				}
+			}
 		}
 	}
 	return nil

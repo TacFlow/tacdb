@@ -307,7 +307,7 @@ Implementation: `internal/catalog`. The State holds 19 roots; slots 19 to 31 are
 | 14, 15 | NodeProperty, EdgeProperty | `(index u64, sortable value, entity u64)` → empty (§13.4) |
 | 16 | Stats | `(prefix u8, …)` → record or counter; prefix 1 holds index entry counts (§13.4), prefix 2 degrees (§13.3) |
 | 17 | Sessions | later milestones |
-| 18 | Maintenance | `(prefix u8, …)` → record (M3d) |
+| 18 | Maintenance | `(prefix u8, …)` → record: prefix 1 index builds, 4 index purges (§13.4) |
 
 ### 13.1 Records
 
@@ -360,4 +360,8 @@ Ordered families refuse NaN and infinities: a write or a backfill that would ind
 **Truncation.** When the escaped form of a String or Bytes value is longer than `prefixBytes`, the entry keeps the longest prefix of the escaped form of at most `prefixBytes` bytes that does not split an escape `00 FF`, then the marker `00 01` and the first 16 bytes of the SHA-256 of the value. `00 01` sorts after the terminator `00 00`, so a truncated key follows the text equal to its prefix and precedes every greater text; texts that share the same truncated prefix are ordered by their full values when read.
 
 **Equality key.** Uniqueness and the hashed family use the canonical equality key of a value: Null `00`; Bool `01` and u8; a finite non-zero number `02`, a sign u8, then the exponent i32 and the odd mantissa u64 (big-endian) of its exact binary fraction, so Int 1 and Float 1.0 meet; zero `03`, either sign; NaN `04`; +Inf `05`; −Inf `06`; String `07` and Bytes `08`, each with a u32 length and the bytes; Vector `09`, List `0A` and Map `0B`, each with a u32 count, then the components as numbers, the items, or each key with a u32 length followed by its value, keys in byte order. A hash never proves equality: the base record decides.
+
+**Builds and purges.** An online build keeps the Maintenance record at key `(1, index u64)`, version 1: `cursor` (Int, the last entity ID its batches reached), `scanned` (Int, the entries they inserted), `writerDelta` (Int, the entries writers added minus those they removed meanwhile), `estimated` (Int), `started` (Int, the commit that declared the index BUILDING), `conflicts` (List of Int, pairs of entities with equal values in a unique index, at most 8 pairs) and, for a FAILED index, `failure` (String, an error code) and `message` (String). The build ends ONLINE when the entry counter equals `scanned + writerDelta` and no conflict was found. During a build, a writer that removes the value of an entity above the cursor finds no entry, which is not corruption. The record stays after the build for its status; dropping the index removes it.
+
+A dropped or FAILED index whose entries remain has the Maintenance record at key `(4, index u64)`, version 1, with `entity` (Int: 0 nodes, 1 edges). Its entries are removed in batches; the counter and the record go with the last batch.
 

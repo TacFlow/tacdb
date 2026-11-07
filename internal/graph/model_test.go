@@ -75,7 +75,7 @@ func (m *model) indexed(d IndexDef) map[uint64]value.Value {
 // generated values have no NaN, so Compare is the equality of uniqueness.
 func (m *model) unique() bool {
 	for _, d := range m.indexes {
-		if !d.Unique {
+		if !d.Unique || d.State != index.Online {
 			continue
 		}
 		var seen []value.Value
@@ -190,10 +190,10 @@ func pick(rng *rand.Rand, ids []uint64) uint64 {
 func TestAgainstModel(t *testing.T) {
 	seen := map[errs.Code]int{}
 	for seed := range uint64(8) {
-		t.Run(fmt.Sprint(seed), func(t *testing.T) { runModel(t, seed, 500, seen) })
+		t.Run(fmt.Sprint(seed), func(t *testing.T) { runModel(t, seed, 700, seen) })
 	}
 	// The run must reach the cases it is meant to check.
-	for _, c := range []errs.Code{"", errs.CodeUniqueViolation, errs.CodeIndexExistsDifferent, errs.CodeIndexNotFound, errs.CodeNotFound} {
+	for _, c := range []errs.Code{"", errs.CodeUniqueViolation, errs.CodeIndexExistsDifferent, errs.CodeIndexNotFound, errs.CodeNotFound, "builds finished", "builds dropped"} {
 		if seen[c] == 0 {
 			t.Errorf("no operation ended with %q: %v", c, seen)
 		}
@@ -220,12 +220,13 @@ func runModel(t *testing.T, seed uint64, steps int, seen map[errs.Code]int) {
 		{Name: "i1", Entity: EdgeEntity, Scope: "R", Property: "q"},
 	} {
 		do(t, tx, func(s *engine.Stmt) error { return g.CreateIndex(ctx, s, d) })
+		d.State = index.Online
 		m.indexes[d.Name] = d
 	}
 	var saves []*model
 	for step := range steps {
 		nodes, edges := slices.Sorted(maps.Keys(m.nodes)), slices.Sorted(maps.Keys(m.edges))
-		op := rng.IntN(18)
+		op := rng.IntN(20)
 		var want errs.Code
 		var apply func(id uint64)
 		var fn func(s *engine.Stmt) (uint64, error)
@@ -381,21 +382,85 @@ func runModel(t *testing.T, seed uint64, steps int, seen map[errs.Code]int) {
 			} else {
 				d.Scope = pickName(rng, labelNames)
 			}
-			if old, ok := m.indexes[d.Name]; ok && old != d {
+			if old, ok := m.indexes[d.Name]; ok && !sameDef(old, d) {
 				want = errs.CodeIndexExistsDifferent
 			}
 			fn = func(s *engine.Stmt) (uint64, error) { return 0, g.CreateIndex(ctx, s, d) }
-			apply = func(uint64) { m.indexes[d.Name] = d }
+			apply = func(uint64) {
+				if _, ok := m.indexes[d.Name]; !ok {
+					d.State = index.Online
+					m.indexes[d.Name] = d
+				}
+			}
+		case 18: // the first phase of an online build
+			d := IndexDef{Name: "b" + strconv.Itoa(rng.IntN(2)), Property: pickName(rng, propNames)}
+			if rng.IntN(2) == 0 {
+				d.Entity, d.Scope = EdgeEntity, pickName(rng, typeNames)
+			} else {
+				d.Scope = pickName(rng, labelNames)
+			}
+			if old, ok := m.indexes[d.Name]; ok && !sameDef(old, d) {
+				want = errs.CodeIndexExistsDifferent
+			}
+			fn = func(s *engine.Stmt) (uint64, error) { _, err := g.StartBuild(ctx, s, d); return 0, err }
+			apply = func(uint64) {
+				if _, ok := m.indexes[d.Name]; !ok {
+					d.State = index.Building
+					m.indexes[d.Name] = d
+				}
+			}
+		case 19: // a batch of one entity of a build, and its last phase
+			var building []string
+			for _, n := range slices.Sorted(maps.Keys(m.indexes)) {
+				if m.indexes[n].State == index.Building {
+					building = append(building, n)
+				}
+			}
+			if len(building) == 0 {
+				break
+			}
+			name := building[rng.IntN(len(building))]
+			var finished bool
+			fn = func(s *engine.Stmt) (uint64, error) {
+				set, err := g.Indexes.Get(ctx, s)
+				if err != nil {
+					return 0, err
+				}
+				ix, _ := set.Named(name)
+				_, done, err := g.BuildBatch(ctx, s, ix.ID, 1)
+				if err != nil || !done {
+					return 0, err
+				}
+				state, err := g.FinishBuild(ctx, s, ix.ID)
+				finished = state == index.Online
+				return 0, err
+			}
+			apply = func(uint64) {
+				if finished {
+					seen["builds finished"]++
+					d := m.indexes[name]
+					d.State = index.Online
+					m.indexes[name] = d
+				}
+			}
 		case 17: // DropIndex, now and then
 			if rng.IntN(4) > 0 {
 				break
 			}
 			name := "i" + strconv.Itoa(rng.IntN(4))
+			if rng.IntN(3) == 0 {
+				name = "b" + strconv.Itoa(rng.IntN(2)) // cancels a build
+			}
 			if _, ok := m.indexes[name]; !ok {
 				want = errs.CodeIndexNotFound
 			}
 			fn = func(s *engine.Stmt) (uint64, error) { return 0, g.DropIndex(ctx, s, name) }
-			apply = func(uint64) { delete(m.indexes, name) }
+			apply = func(uint64) {
+				if m.indexes[name].State == index.Building {
+					seen["builds dropped"]++
+				}
+				delete(m.indexes, name)
+			}
 		}
 		if fn != nil {
 			var id uint64
@@ -455,7 +520,13 @@ func check(t *testing.T, g *Graph, tx *engine.WriteTx, m *model, rng *rand.Rand,
 	if err := g.Verify(ctx, tx); err != nil {
 		t.Fatalf("step %d: %v", step, err)
 	}
-	if names := slices.Sorted(maps.Keys(m.indexes)); len(names) > 0 {
+	var online []string
+	for _, n := range slices.Sorted(maps.Keys(m.indexes)) {
+		if m.indexes[n].State == index.Online {
+			online = append(online, n)
+		}
+	}
+	if names := online; len(names) > 0 {
 		d := m.indexes[names[rng.IntN(len(names))]]
 		set, err := g.Indexes.Get(ctx, tx)
 		if err != nil {
@@ -524,4 +595,10 @@ func check(t *testing.T, g *Graph, tx *engine.WriteTx, m *model, rng *rand.Rand,
 			t.Fatalf("step %d: cursor of %d dir %d: %d edges, %v; degree %d", step, n, dir, len(ids), c.Err(), got)
 		}
 	}
+}
+
+// sameDef compares declarations, whatever their states.
+func sameDef(a, b IndexDef) bool {
+	a.State, b.State = 0, 0
+	return a == b
 }

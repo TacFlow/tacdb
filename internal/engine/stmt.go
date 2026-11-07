@@ -136,6 +136,9 @@ func (s *Stmt) RangeReverse(ctx context.Context, slot int, lo, hi []byte, fn fun
 	return t.RangeReverse(ctx, s.tx.pins, lo, hi, fn)
 }
 
+// Bytes returns the private pages the transaction holds, in bytes.
+func (s *Stmt) Bytes() int64 { return s.tx.res.Bytes() }
+
 // CheckLimit fails with LIMIT_EXCEEDED once the transaction holds more
 // than MaxTxBytes, for long statements that check before their end.
 func (s *Stmt) CheckLimit() error {

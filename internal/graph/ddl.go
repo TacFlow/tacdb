@@ -10,6 +10,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/index"
+	"github.com/TacFlow/tacdb/value"
 )
 
 // IndexDef describes a property index by names.
@@ -52,26 +53,11 @@ func (g *Graph) CreateIndex(ctx context.Context, s *engine.Stmt, d IndexDef) err
 		}
 		return err
 	}
-	var scope uint32
-	if d.Entity == EdgeEntity {
-		t, err := catalog.Intern[catalog.EdgeTypeID](ctx, s, d.Scope, g.MaxSymbols)
-		if err != nil {
-			return err
-		}
-		scope = uint32(t)
-	} else {
-		l, err := catalog.Intern[catalog.LabelID](ctx, s, d.Scope, g.MaxSymbols)
-		if err != nil {
-			return err
-		}
-		scope = uint32(l)
-	}
-	pid, err := catalog.Intern[catalog.PropertyID](ctx, s, d.Property, g.MaxSymbols)
+	def, err := g.intern(ctx, s, d)
 	if err != nil {
 		return err
 	}
-	ix, err := index.Declare(ctx, s, index.Definition{Name: d.Name, Entity: d.Entity.index(), Scope: scope, Property: pid, Unique: d.Unique},
-		index.Online, g.IndexPrefixBytes)
+	ix, err := index.Declare(ctx, s, def, index.Online, g.IndexPrefixBytes)
 	if err != nil {
 		return err
 	}
@@ -114,18 +100,37 @@ func (g *Graph) sameIndex(ctx context.Context, r engine.Reader, ix *index.Index,
 // backfill inserts the entries of every entity in the scope of ix that
 // has its property, by ascending ID.
 func (g *Graph) backfill(ctx context.Context, s *engine.Stmt, ix *index.Index) error {
-	e := NodeEntity
-	slot, lo := catalog.SlotLabels, codec.AppendKeyUint32(nil, ix.Scope)
-	if ix.Entity == index.Edges {
-		e, slot, lo = EdgeEntity, catalog.SlotEdges, nil
-	}
-	var hi []byte
-	if lo != nil {
-		hi = codec.PrefixEnd(lo)
-	}
 	n := 0
+	err := g.scopeWalk(ctx, s, ix, 0, func(id uint64, v value.Value, ok bool) (bool, error) {
+		if ok {
+			if err := index.Insert(ctx, s, ix, id, v); err != nil {
+				return false, err
+			}
+		}
+		if n++; n%backfillCheck == 0 {
+			return false, s.CheckLimit()
+		}
+		return false, nil
+	})
+	if err != nil {
+		return err
+	}
+	return s.CheckLimit() // the remainder after the last periodic check
+}
+
+// scopeWalk calls fn for each entity in the scope of ix with an ID above
+// after, by ascending ID, with the value of the indexed property when it
+// has one, until fn asks to stop. It reads IDs in batches first, so that
+// fn may write: the walk never writes the tree it reads.
+func (g *Graph) scopeWalk(ctx context.Context, s *engine.Stmt, ix *index.Index, after uint64,
+	fn func(id uint64, v value.Value, ok bool) (stop bool, err error)) error {
+	e := NodeEntity
+	slot, lo := catalog.SlotLabels, codec.AppendKeyUint64(codec.AppendKeyUint32(nil, ix.Scope), after+1)
+	hi := codec.PrefixEnd(codec.AppendKeyUint32(nil, ix.Scope))
+	if ix.Entity == index.Edges {
+		e, slot, lo, hi = EdgeEntity, catalog.SlotEdges, codec.AppendKeyUint64(nil, after+1), nil
+	}
 	for {
-		// Read a batch of IDs first: the walk must not write its tree.
 		var ids []uint64
 		next := lo
 		err := s.Range(ctx, slot, lo, hi, func(k, v []byte) error {
@@ -153,27 +158,22 @@ func (g *Graph) backfill(ctx context.Context, s *engine.Stmt, ix *index.Index) e
 			return err
 		}
 		for _, id := range ids {
+			var v value.Value
 			b, ok, err := s.Get(ctx, e.slot(), propertyKey(id, ix.Property))
 			if err != nil {
 				return err
 			}
 			if ok {
-				v, err := stored(b)
-				if err != nil {
-					return err
-				}
-				if err := index.Insert(ctx, s, ix, id, v); err != nil {
+				if v, err = stored(b); err != nil {
 					return err
 				}
 			}
-			if n++; n%backfillCheck == 0 {
-				if err := s.CheckLimit(); err != nil {
-					return err
-				}
+			if stop, err := fn(id, v, ok); err != nil || stop {
+				return err
 			}
 		}
 		if err != errStop {
-			return s.CheckLimit() // the remainder after the last periodic check
+			return nil
 		}
 		lo = next
 	}

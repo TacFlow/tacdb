@@ -86,7 +86,17 @@ func (tx *Tx) Commit(ctx context.Context) (CommitReceipt, error) {
 		tx.r.Close()
 		return CommitReceipt{ID: CommitID(tx.r.State().CommitID), Durable: tx.r.Durable()}, nil
 	}
+	return tx.commit(ctx)
+}
+
+// commit commits the write transaction; after a change of the schema it
+// wakes the background builds and purges.
+func (tx *Tx) commit(ctx context.Context) (CommitReceipt, error) {
+	ddl := tx.w.State().SchemaEpoch != tx.w.Base().SchemaEpoch
 	rc, err := tx.w.Commit(ctx)
+	if err == nil && ddl {
+		tx.db.work.resume()
+	}
 	return CommitReceipt{ID: CommitID(rc.CommitID), Token: rc.Token, Durable: rc.Durable}, err
 }
 

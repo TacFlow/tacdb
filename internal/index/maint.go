@@ -67,9 +67,11 @@ func addEntries(ctx context.Context, s *engine.Stmt, ix *Index, by int64) error 
 	return s.Put(ctx, catalog.SlotStats, counterKey(ix.ID), binary.LittleEndian.AppendUint64(nil, n))
 }
 
-// Insert adds the entry of entity for v to ix. In a unique ONLINE index,
-// another live entity with an equal value fails it with UNIQUE_VIOLATION,
-// and the statement undoes the operation (SPEC §12.2).
+// Insert adds the entry of entity for v to ix, for a writer. In a unique
+// ONLINE index, another live entity with an equal value fails it with
+// UNIQUE_VIOLATION, and the statement undoes the operation; in a BUILDING
+// one, the pair is recorded and the build fails at its end (SPEC §12.2).
+// In a BUILDING index the writer also counts its entry in the build.
 func Insert(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v value.Value) error {
 	k, _, err := entryKey(ix, entity, v)
 	if err != nil {
@@ -78,9 +80,22 @@ func Insert(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v val
 	if err := codec.CheckKey(k); err != nil {
 		return err
 	}
-	if ix.Unique && ix.State == Online && !v.IsNull() {
-		if err := unique(ctx, s, ix, entity, v); err != nil {
+	var st Build
+	if ix.State == Building {
+		if st, err = build(ctx, s, ix); err != nil {
 			return err
+		}
+	}
+	if ix.Unique && !v.IsNull() {
+		other, dup, err := duplicate(ctx, s, ix, entity, v)
+		if err != nil {
+			return err
+		}
+		if dup && ix.State == Online {
+			return errs.Newf(errs.CodeUniqueViolation, "index", "the unique index %q already holds an equal value", ix.Name)
+		}
+		if dup {
+			conflict(&st, other, entity)
 		}
 	}
 	if _, ok, err := s.Get(ctx, ix.Entity.Slot(), k); err != nil {
@@ -91,11 +106,18 @@ func Insert(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v val
 	if err := s.Put(ctx, ix.Entity.Slot(), k, nil); err != nil {
 		return err
 	}
+	if ix.State == Building {
+		st.WriterDelta++
+		if err := writeBuild(ctx, s, ix, st); err != nil {
+			return err
+		}
+	}
 	return addEntries(ctx, s, ix, 1)
 }
 
-// Remove deletes the entry of entity for v from ix; a missing entry is
-// corruption.
+// Remove deletes the entry of entity for v from ix, for a writer. A
+// missing entry is corruption, except in a BUILDING index for an entity
+// the batches have not reached yet.
 func Remove(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v value.Value) error {
 	k, _, err := entryKey(ix, entity, v)
 	if err != nil {
@@ -105,17 +127,32 @@ func Remove(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v val
 	if err != nil {
 		return err
 	}
+	if ix.State == Building {
+		st, err := build(ctx, s, ix)
+		if err != nil {
+			return err
+		}
+		if !found && entity > st.Cursor {
+			return nil // not indexed yet: the batches will see the new state
+		}
+		if found {
+			st.WriterDelta--
+			if err := writeBuild(ctx, s, ix, st); err != nil {
+				return err
+			}
+		}
+	}
 	if !found {
 		return errs.Newf(errs.CodeCorrupt, "index", "index %d lacks the entry of %d", ix.ID, entity)
 	}
 	return addEntries(ctx, s, ix, -1)
 }
 
-// unique looks for another entity with a value equal to v, by the codec
-// of equality: in v's family and, for a number, in the other numeric
-// family when v converts to it exactly. A truncated or hashed key only
-// names candidates, which the base record confirms.
-func unique(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v value.Value) error {
+// duplicate looks for another entity with a value equal to v, by the
+// codec of equality: in v's family and, for a number, in the other
+// numeric family when v converts to it exactly. A truncated or hashed key
+// only names candidates, which the base record confirms.
+func duplicate(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v value.Value) (uint64, bool, error) {
 	probes := []value.Value{v}
 	if sib, ok := sibling(v); ok {
 		probes = append(probes, sib)
@@ -123,9 +160,9 @@ func unique(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v val
 	for _, p := range probes {
 		lo, f, err := appendSortable(indexPrefix(ix.ID), p, ix.PrefixBytes)
 		if err != nil {
-			return err
+			return 0, false, err
 		}
-		var dup bool
+		var found uint64
 		err = s.Range(ctx, ix.Entity.Slot(), lo, codec.PrefixEnd(lo), func(k, _ []byte) error {
 			if len(k) != len(lo)+8 {
 				return nil // a longer key under the prefix: another value
@@ -143,17 +180,17 @@ func unique(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v val
 					return nil
 				}
 			}
-			dup = true
+			found = other
 			return errStop
 		})
 		if err != nil && err != errStop {
-			return err
+			return 0, false, err
 		}
-		if dup {
-			return errs.Newf(errs.CodeUniqueViolation, "index", "the unique index %q already holds an equal value", ix.Name)
+		if found != 0 {
+			return found, true, nil
 		}
 	}
-	return nil
+	return 0, false, nil
 }
 
 // baseValue reads the indexed property of entity from its record.
@@ -215,8 +252,9 @@ func Declare(ctx context.Context, s *engine.Stmt, d Definition, state State, pre
 	return ix, s.BumpSchemaEpoch()
 }
 
-// Drop removes the declaration of ix, its entries and its counter, and
-// raises the schema epoch.
+// Drop removes the declaration of ix and its build record, schedules the
+// purge of its entries in batches, and raises the schema epoch. A batch of
+// its build in flight finds the declaration gone and ends without effect.
 func Drop(ctx context.Context, s *engine.Stmt, ix *Index) error {
 	found, err := s.Delete(ctx, catalog.SlotCatalog, declarationKey(ix.ID))
 	if err != nil {
@@ -225,26 +263,13 @@ func Drop(ctx context.Context, s *engine.Stmt, ix *Index) error {
 	if !found {
 		return errs.Newf(errs.CodeCorrupt, "index", "index %d has no declaration", ix.ID)
 	}
-	var keys [][]byte
-	p := indexPrefix(ix.ID)
-	if err := s.Range(ctx, ix.Entity.Slot(), p, codec.PrefixEnd(p), func(k, _ []byte) error {
-		keys = append(keys, append([]byte(nil), k...))
-		return nil
-	}); err != nil {
+	if _, err := s.Delete(ctx, catalog.SlotMaintenance, maintenanceKey(prefixBuild, ix.ID)); err != nil {
 		return err
 	}
-	for i, k := range keys {
-		if _, err := s.Delete(ctx, ix.Entity.Slot(), k); err != nil {
+	if ix.State != Failed { // a failed index is purged already
+		if err := schedulePurge(ctx, s, ix); err != nil {
 			return err
 		}
-		if i%256 == 255 {
-			if err := s.CheckLimit(); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err := s.Delete(ctx, catalog.SlotStats, counterKey(ix.ID)); err != nil {
-		return err
 	}
 	return s.BumpSchemaEpoch()
 }

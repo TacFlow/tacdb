@@ -68,6 +68,12 @@ type Iterator struct {
 
 // Seek starts a seek of q over ix, whose entries r must be able to read.
 func Seek(ctx context.Context, r engine.Reader, ix *Index, q Query) (*Iterator, error) {
+	switch ix.State {
+	case Building:
+		return nil, errs.Newf(errs.CodeIndexBuilding, "index.Seek", "index %q is still building", ix.Name)
+	case Failed:
+		return nil, errs.Newf(errs.CodeIndexBuildFailed, "index.Seek", "the build of index %q failed", ix.Name)
+	}
 	it := &Iterator{r: r, ix: ix, desc: q.Desc}
 	p := indexPrefix(ix.ID)
 	fam := func(tag byte) []byte { return append(slices.Clone(p), tag) }
