@@ -12,8 +12,20 @@ import (
 // Location points into a query source (SPEC §6.1).
 type Location struct {
 	Start, End   int // byte offsets
-	Line, Column int // 1-based
+	Line, Column int // 1-based; Column counts code points
 }
+
+// Stage is the stage of query processing an error comes from (SPEC §6.1).
+type Stage string
+
+// Stages of query processing.
+const (
+	StageLex      Stage = "lex"
+	StageParse    Stage = "parse"
+	StageSemantic Stage = "semantic"
+	StagePlan     Stage = "plan"
+	StageExecute  Stage = "execute"
+)
 
 // Error is the error type returned by tacdb.
 //
@@ -27,6 +39,7 @@ type Error struct {
 	Cause       error
 	Retryable   bool
 	CommitToken *[16]byte
+	Stage       Stage // for query errors
 	Location    *Location
 	// Details carries named numeric facts whose keys are stable per code
 	// (SPEC §6.1). Durations are in nanoseconds. Keys in use:
@@ -89,6 +102,9 @@ func (e *Error) Error() string {
 	if e.Message != "" {
 		b.WriteString(": ")
 		b.WriteString(e.Message)
+	}
+	if e.Location != nil {
+		fmt.Fprintf(&b, " at line %d, column %d", e.Location.Line, e.Location.Column)
 	}
 	if len(e.Details) > 0 {
 		keys := make([]string, 0, len(e.Details))
