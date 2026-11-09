@@ -9,8 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/query/ast"
 	"github.com/TacFlow/tacdb/internal/query/eval"
+	"github.com/TacFlow/tacdb/internal/query/exec"
 	"github.com/TacFlow/tacdb/internal/query/parser"
 	"github.com/TacFlow/tacdb/internal/query/qv"
 	"github.com/TacFlow/tacdb/internal/query/sema"
@@ -60,29 +62,40 @@ func (g *oGraph) edge(id uint64) *oEdge {
 	return nil
 }
 
-func (g *oGraph) Property(_ context.Context, k qv.Kind, id uint64, key string) (value.Value, bool, error) {
-	var props map[string]value.Value
+// props returns the properties of an entity; one deleted by a query that
+// writes is NOT_FOUND, as in the database.
+func (g *oGraph) props(k qv.Kind, id uint64) (map[string]value.Value, error) {
 	if k == qv.KindEdge {
-		props = g.edge(id).props
-	} else {
-		props = g.node(id).props
+		if e := g.edge(id); e != nil {
+			return e.props, nil
+		}
+	} else if n := g.node(id); n != nil {
+		return n.props, nil
 	}
+	return nil, errs.Newf(errs.CodeNotFound, "oracle", "%s %d does not exist", k, id)
+}
+
+func (g *oGraph) Property(_ context.Context, k qv.Kind, id uint64, key string) (value.Value, bool, error) {
+	props, err := g.props(k, id)
 	v, ok := props[key]
-	return v, ok, nil
+	return v, ok, err
 }
 
 func (g *oGraph) Properties(_ context.Context, k qv.Kind, id uint64) (map[string]value.Value, error) {
-	if k == qv.KindEdge {
-		return g.edge(id).props, nil
-	}
-	return g.node(id).props, nil
+	return g.props(k, id)
 }
 
 func (g *oGraph) Labels(_ context.Context, id uint64) ([]string, error) {
+	if _, err := g.props(qv.KindNode, id); err != nil {
+		return nil, err
+	}
 	return g.node(id).labels, nil
 }
 
 func (g *oGraph) EdgeType(_ context.Context, id uint64) (string, error) {
+	if _, err := g.props(qv.KindEdge, id); err != nil {
+		return "", err
+	}
 	return g.edge(id).typ, nil
 }
 
@@ -147,10 +160,12 @@ func (t *table) Variable(name string) (int, bool) {
 func (*table) Aggregate(*ast.FuncCall) (int, bool) { return 0, false }
 
 type oracle struct {
-	t   *testing.T
-	g   *oGraph
-	src string
-	env *eval.Env
+	t     *testing.T
+	g     *oGraph
+	src   string
+	env   *eval.Env
+	stats exec.Mutations // the effects of the clauses that write
+	next  uint64         // the last ID the oracle gave a new entity
 }
 
 func (o *oracle) compile(e ast.Expr, sc eval.Scope) *eval.Expr {
@@ -180,6 +195,8 @@ func (o *oracle) run(q *ast.Query) (*table, error) {
 			}
 		case *ast.Return:
 			tb, err = o.project(tb, c.Projection)
+		default:
+			tb, err = o.write(tb, c)
 		}
 		if err != nil {
 			return nil, err
@@ -234,10 +251,12 @@ type element struct {
 	fresh bool
 }
 
-// match enumerates every assignment of the elements of the clause, for
-// each row.
-func (o *oracle) match(tb *table, c *ast.Match) (*table, error) {
-	out := &table{names: slices.Clone(tb.names)}
+// elements names the elements of patterns after the names in scope: a
+// variable keeps its name, an anonymous element gets a hidden one. It
+// returns the names in scope after the patterns and each pattern as a
+// chain of elements.
+func elements(scope []string, pats []*ast.Pattern) ([]string, [][]*element) {
+	names := slices.Clone(scope)
 	var chains [][]*element
 	anon := 0
 	name := func(v string) (string, bool) {
@@ -245,29 +264,37 @@ func (o *oracle) match(tb *table, c *ast.Match) (*table, error) {
 			anon++
 			return fmt.Sprintf("\x00%d", anon), true
 		}
-		if slices.Contains(out.names, v) {
+		if slices.Contains(names, v) {
 			return v, false
 		}
 		return v, true
 	}
-	for _, p := range c.Patterns {
+	for _, p := range pats {
 		var chain []*element
 		for i, n := range p.Nodes {
 			nm, fresh := name(n.Var)
 			if fresh {
-				out.names = append(out.names, nm)
+				names = append(names, nm)
 			}
 			chain = append(chain, &element{name: nm, node: n, fresh: fresh})
 			if i < len(p.Rels) {
 				nm, fresh := name(p.Rels[i].Var)
 				if fresh {
-					out.names = append(out.names, nm)
+					names = append(names, nm)
 				}
 				chain = append(chain, &element{name: nm, rel: p.Rels[i], fresh: fresh})
 			}
 		}
 		chains = append(chains, chain)
 	}
+	return names, chains
+}
+
+// match enumerates every assignment of the elements of the clause, for
+// each row.
+func (o *oracle) match(tb *table, c *ast.Match) (*table, error) {
+	names, chains := elements(tb.names, c.Patterns)
+	out := &table{names: names}
 	var where *eval.Expr
 	if c.Where != nil {
 		where = o.compile(c.Where, out)
@@ -647,6 +674,10 @@ type gen struct {
 	nodes []string // node variables in scope
 	rels  []string // relationship variables in scope
 	n     int
+	noID  bool // no predicate on IDs, which differ in the oracle of writes
+	// noVarLen leaves out variable-length relationships, which the oracle
+	// of reads covers and whose paths grow fast with the graphs of writes.
+	noVarLen bool
 }
 
 func (g *gen) pick(xs []string) string { return xs[g.rng.IntN(len(xs))] }
@@ -685,7 +716,7 @@ func (g *gen) rel(clause map[string]bool) {
 		left = "<-"
 	}
 	g.b.WriteString(left + "[")
-	varLen := g.rng.IntN(5) == 0
+	varLen := !g.noVarLen && g.rng.IntN(5) == 0
 	if !varLen && g.rng.IntN(2) == 0 {
 		g.n++
 		v := fmt.Sprintf("r%d", g.n)
@@ -744,6 +775,9 @@ func (g *gen) pred() string {
 	case 2:
 		return v + ".p IS NULL"
 	case 3:
+		if g.noID {
+			return fmt.Sprintf("%s.p < %d", v, k)
+		}
 		if g.rng.IntN(3) == 0 {
 			return fmt.Sprintf("id(%s) = %d.%d", v, 1+g.rng.IntN(6), g.rng.IntN(2)*5)
 		}
