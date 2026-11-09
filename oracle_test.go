@@ -872,7 +872,7 @@ func rowString(r []qv.Value) string {
 
 func TestOracle(t *testing.T) {
 	seeds, queries := 200, 30
-	if testing.Short() {
+	if testing.Short() || raceDetector {
 		seeds = 40
 	}
 	for seed := range uint64(seeds) {
