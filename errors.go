@@ -15,6 +15,18 @@ type Error = errs.Error
 // Location points into a query source.
 type Location = errs.Location
 
+// Stage is the stage of query processing an error comes from.
+type Stage = errs.Stage
+
+// Stages of query processing.
+const (
+	StageLex      = errs.StageLex
+	StageParse    = errs.StageParse
+	StageSemantic = errs.StageSemantic
+	StagePlan     = errs.StagePlan
+	StageExecute  = errs.StageExecute
+)
+
 // Lifecycle codes.
 const (
 	CodeClosed              = errs.CodeClosed

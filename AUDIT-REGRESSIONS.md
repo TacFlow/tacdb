@@ -57,7 +57,7 @@ Every item of tables §32.1, §32.4 and §32.5 of the specification, with the mi
 | REV-37 | Tenant isolation depended on WHERE | M10/M12 | pending | — |
 | REV-38 | The changefeed, indexes and logs exposed sensitive data | M6/M10 | pending | — |
 | REV-39 | Stored injection and confused deputy through events | M7 | pending | — |
-| REV-40 | Dynamic identifiers built by concatenation | M4 | pending | — |
+| REV-40 | Dynamic identifiers built by concatenation | M4 | partial | M4a: `query.QuoteIdentifier` validates and quotes labels, types, property keys and variables, and hostile names parse back as exactly one identifier (`TestQuoteIdentifier`); the `tacdbvet` analyzer arrives in M4f |
 | REV-41 | DoS through queries without deadlines, symbols, decoding and sessions | M10 | pending | — |
 | REV-42 | Permissions, symlinks and path traversal unspecified | M1 | done | M1b: `internal/vfs`; green on Linux, macOS and Windows (CI run 41250873068, SEC-08) |
 | REV-43 | Deleted data persisted in the changefeed, WAL, indexes and backups | M9 | pending | — |

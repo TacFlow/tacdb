@@ -81,3 +81,13 @@ func TestErrorStringMinimal(t *testing.T) {
 		t.Fatalf("Error() = %q, want %q", got, want)
 	}
 }
+
+// A query error names its stage and where in the source it is.
+func TestErrorStringIncludesLocation(t *testing.T) {
+	e := New(CodeQueryParse, "query.Parse", "expected ')'")
+	e.Stage = StageParse
+	e.Location = &Location{Start: 12, End: 13, Line: 2, Column: 3}
+	if got, want := e.Error(), "tacdb: QUERY_PARSE: query.Parse: expected ')' at line 2, column 3"; got != want {
+		t.Fatalf("%q, want %q", got, want)
+	}
+}
