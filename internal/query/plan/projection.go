@@ -93,7 +93,7 @@ func (p *planner) projection(ap *ast.Projection) error {
 		}
 		p.cluster = -1
 		if limit != nil && !p.cfg.NoTopK {
-			p.op = &TopK{In: p.op, Keys: keys, Skip: skip, Limit: limit}
+			p.op = &TopK{In: p.op, Keys: keys, Skip: skip, Limit: limit, Exhaustive: p.write}
 			return nil
 		}
 		p.op = &Sort{In: p.op, Keys: keys}
@@ -102,7 +102,7 @@ func (p *planner) projection(ap *ast.Projection) error {
 		p.op = &Skip{In: p.op, X: *skip}
 	}
 	if limit != nil {
-		p.op = &Limit{In: p.op, X: *limit}
+		p.op = &Limit{In: p.op, X: *limit, Exhaustive: p.write}
 	}
 	return nil
 }

@@ -161,3 +161,49 @@ func TestPlainOperators(t *testing.T) {
 		t.Fatalf("optimized operators in %s", got)
 	}
 }
+
+// The plans of the clauses that write (design §4.4): a CREATE creates
+// nodes before the relationships that reach them, with <- from right to
+// left; a MERGE matches its pattern over an Argument for each row and
+// creates from left to right; SET and REMOVE keep the order of their
+// items; a LIMIT or a TopK after a write is exhaustive.
+func TestWriteGolden(t *testing.T) {
+	for _, c := range []struct{ src, want string }{
+		{
+			"MATCH (a:A) CREATE (a)-[r:R {w: a.k}]->(:B {k: 1}), (a)<-[:S]-(c) RETURN r",
+			`{"version":1,"columns":["r"],"plan":{"op":"Project","details":{"items":"r AS r"},"inputs":[{"op":"Create","details":{"create":"(#1:B {k: 1}), (a)-[r:R {w: a.k}]->(#1), (c), (c)-[#4:S]->(a)"},"inputs":[{"op":"LabelScan","details":{"label":"A","variable":"a"},"inputs":[{"op":"SingleRow"}]}]}]}}`,
+		},
+		{
+			"MATCH (a:A) MERGE (a)-[r:R]-(b:B {k: a.k}) ON CREATE SET b.new = true, b:New ON MATCH SET r += {seen: 1}",
+			`{"version":1,"columns":[],"plan":{"op":"Merge","details":{"create":"(b:B {k: a.k}), (a)-[r:R]->(b)","onCreate0":"b.new = TRUE, b:New","onMatch1":"r += {seen: 1}"},"inputs":[{"op":"LabelScan","details":{"label":"A","variable":"a"},"inputs":[{"op":"SingleRow"}]},{"op":"ExpandAll","details":{"direction":"both","from":"a","relationship":"r","to":"b","toLabels":"B","toProperties":"{k: a.k}","types":"R"},"inputs":[{"op":"Argument"}]}]}}`,
+		},
+		{
+			"MATCH (n) SET n.k = 1, n = {a: 2}, n:X:Y REMOVE n.a, n:Y WITH n DETACH DELETE n RETURN count(*) AS c LIMIT 1",
+			`{"version":1,"columns":["c"],"plan":{"op":"ExhaustiveLimit","details":{"count":"1"},"inputs":[{"op":"Project","details":{"items":"count(*) AS c"},"inputs":[{"op":"Aggregate","details":{"aggregates":"count(*)"},"inputs":[{"op":"Delete","details":{"detach":"true","entities":"n"},"inputs":[{"op":"Project","details":{"items":"n AS n"},"inputs":[{"op":"Remove","details":{"items":"n.a, n:Y"},"inputs":[{"op":"Set","details":{"items":"n.k = 1, n = {a: 2}, n:X:Y"},"inputs":[{"op":"NodeScan","details":{"variable":"n"},"inputs":[{"op":"SingleRow"}]}]}]}]}]}]}]}]}}`,
+		},
+		{
+			"UNWIND [1] AS i CREATE (n) RETURN n ORDER BY n.k LIMIT 3",
+			`{"version":1,"columns":["n"],"plan":{"op":"TopK","details":{"exhaustive":"true","key0":"n.k","limit":"3"},"inputs":[{"op":"Project","details":{"items":"n AS n","sortKey0":"n.k"},"inputs":[{"op":"Create","details":{"create":"(n)"},"inputs":[{"op":"Unwind","details":{"expression":"[1]","variable":"i"},"inputs":[{"op":"SingleRow"}]}]}]}]}}`,
+		},
+	} {
+		p, err := build(t, c.src, plan.Config{Write: true})
+		if err != nil {
+			t.Fatalf("%s: %v", c.src, err)
+		}
+		if got := string(plan.Render(p)); got != c.want {
+			t.Fatalf("%s:\n got  %s\n want %s", c.src, got, c.want)
+		}
+		if !p.Write {
+			t.Fatalf("%s: not a write", c.src)
+		}
+	}
+	// Without Config.Write a query that writes is for Exec.
+	if _, err := build(t, "CREATE (n)", plan.Config{}); errs.CodeOf(err) != errs.CodeQueryWriteRequiresExec {
+		t.Fatalf("a write without Config.Write: %v", err)
+	}
+	// A LIMIT before the first write is not exhaustive.
+	p, err := build(t, "MATCH (n) WITH n LIMIT 1 SET n.k = 1", plan.Config{Write: true})
+	if err != nil || strings.Contains(string(plan.Render(p)), "Exhaustive") {
+		t.Fatalf("a LIMIT before a write: %v %s", err, plan.Render(p))
+	}
+}

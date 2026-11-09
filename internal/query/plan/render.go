@@ -175,10 +175,40 @@ func render(op Op) node {
 			d["skip"] = o.Skip.Text
 		}
 		d["limit"] = o.Limit.Text
+		if o.Exhaustive {
+			d["exhaustive"] = "true"
+		}
 	case *Skip:
 		d["count"] = o.X.Text
 	case *Limit:
 		d["count"] = o.X.Text
+	case *Create:
+		steps(d, "create", o.Steps, name)
+	case *Merge:
+		steps(d, "create", o.Steps, name)
+		for i, a := range o.Actions {
+			k := "onMatch"
+			if a.OnCreate {
+				k = "onCreate"
+			}
+			d[k+strconv.Itoa(i)] = setItems(a.Items, name)
+		}
+	case *Set:
+		d["items"] = setItems(o.Items, name)
+	case *Remove:
+		d["items"] = setItems(o.Items, name)
+	case *Delete:
+		s := ""
+		for i, x := range o.Exprs {
+			if i > 0 {
+				s += ", "
+			}
+			s += x.Text
+		}
+		d["entities"] = s
+		if o.Detach {
+			d["detach"] = "true"
+		}
 	}
 	if len(d) == 0 {
 		n.Details = nil
@@ -187,6 +217,64 @@ func render(op Op) node {
 		n.Inputs = append(n.Inputs, render(x))
 	}
 	return n
+}
+
+// steps renders the elements a Create or a Merge creates, in order.
+func steps(d map[string]string, key string, ss []CreateStep, name func(int) string) {
+	s := ""
+	for i, st := range ss {
+		if i > 0 {
+			s += ", "
+		}
+		if st.Rel {
+			s += "(" + name(st.From) + ")-[" + name(st.Slot) + ":" + st.Type + propText(st.Props) + "]->(" + name(st.To) + ")"
+			continue
+		}
+		s += "(" + name(st.Slot)
+		for _, l := range st.Labels {
+			s += ":" + l
+		}
+		s += propText(st.Props) + ")"
+	}
+	d[key] = s
+}
+
+func propText(ps []PropTest) string {
+	if len(ps) == 0 {
+		return ""
+	}
+	s := " {"
+	for i, p := range ps {
+		if i > 0 {
+			s += ", "
+		}
+		s += p.Key + ": " + p.Value.Text
+	}
+	return s + "}"
+}
+
+// setItems renders the items of SET, REMOVE or a MERGE action.
+func setItems(items []SetItem, name func(int) string) string {
+	s := ""
+	for i, it := range items {
+		if i > 0 {
+			s += ", "
+		}
+		v := name(it.Slot)
+		switch it.Kind {
+		case SetProperty:
+			s += v + "." + it.Key + " = " + it.Value.Text
+		case SetProperties:
+			s += v + " = " + it.Value.Text
+		case MergeProperties:
+			s += v + " += " + it.Value.Text
+		case AddLabels, RemoveLabels:
+			s += v + ":" + strings.Join(it.Labels, ":")
+		case RemoveProperty:
+			s += v + "." + it.Key
+		}
+	}
+	return s
 }
 
 func sortKeys(d map[string]string, keys []SortKey) {

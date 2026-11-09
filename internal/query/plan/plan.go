@@ -1,6 +1,6 @@
-// Package plan turns an analyzed read query of tacdb-cypher/1 into a tree
-// of physical operators (SPEC §15.3, §33): the syntactic plan of M4c,
-// without statistics. A plan is immutable once built and safe for
+// Package plan turns an analyzed query of tacdb-cypher/1 into a tree of
+// physical operators (SPEC §15.3, §33): the syntactic plan, without
+// statistics. A plan is immutable once built and safe for
 // concurrent use; the executor instantiates its operators for each
 // execution.
 //
@@ -31,6 +31,9 @@ type Config struct {
 	// tests compare the optimized ones with them (QRY-09).
 	NoTopK             bool
 	NoOrderedAggregate bool
+	// Write plans the clauses that write, for Exec; without it a query
+	// that writes is QUERY_WRITE_REQUIRES_EXEC.
+	Write bool
 }
 
 // Part is the layout of the rows of one part of a query.
@@ -71,6 +74,7 @@ type Plan struct {
 	Columns []sema.Column // the first len(Columns) slots of Out
 	MaxHops int
 	Src     string // the source, for the locations of execution errors
+	Write   bool   // the query writes
 }
 
 // Operators. Each one reads the rows of its input, if any; a scan or a
@@ -205,21 +209,25 @@ type (
 		Keys []SortKey
 	}
 	// TopK yields what Sort, Skip and Limit would, keeping at most
-	// Skip+Limit rows (SPEC §33.4).
+	// Skip+Limit rows (SPEC §33.4). Exhaustive reads its input even for
+	// a LIMIT of 0.
 	TopK struct {
 		In          Op
 		Keys        []SortKey
 		Skip, Limit *Expr // Skip may be nil
+		Exhaustive  bool
 	}
 	// Skip drops the first X rows.
 	Skip struct {
 		In Op
 		X  Expr
 	}
-	// Limit yields at most X rows.
+	// Limit yields at most X rows. Exhaustive, after a clause that
+	// writes, reads the rest of its input too (design §4.4).
 	Limit struct {
-		In Op
-		X  Expr
+		In         Op
+		X          Expr
+		Exhaustive bool
 	}
 )
 
@@ -260,7 +268,9 @@ func (*Distinct) Name() string { return "Distinct" }
 func (*Sort) Name() string     { return "Sort" }
 func (*TopK) Name() string     { return "TopK" }
 func (*Skip) Name() string     { return "Skip" }
-func (*Limit) Name() string    { return "Limit" }
+func (o *Limit) Name() string {
+	return map[bool]string{false: "Limit", true: "ExhaustiveLimit"}[o.Exhaustive]
+}
 
 func in(o Op) []Op { return []Op{o} }
 
@@ -291,8 +301,9 @@ func failf(src string, span ast.Span, code errs.Code, stage errs.Stage, format s
 	return e
 }
 
-// Build plans the read query q, analyzed into info. A write query, a
-// procedure call and the search hint are not planned here.
+// Build plans the query q, analyzed into info. A query that writes is
+// planned only with cfg.Write; a procedure call and the search hint are
+// not planned here.
 func Build(q *ast.Query, info *sema.Info, src string, cfg Config) (*Plan, error) {
 	if cfg.MaxHops <= 0 {
 		cfg.MaxHops = DefaultMaxHops
@@ -300,7 +311,7 @@ func Build(q *ast.Query, info *sema.Info, src string, cfg Config) (*Plan, error)
 	if q.Explain || q.Profile {
 		return nil, failf(src, q.Span, errs.CodeQueryUnsupported, errs.StagePlan, "EXPLAIN and PROFILE are not available in this version")
 	}
-	if info.Write {
+	if info.Write && !cfg.Write {
 		return nil, failf(src, q.Span, errs.CodeQueryWriteRequiresExec, errs.StageSemantic, "a query that writes needs Exec")
 	}
 	part := &Part{}
@@ -312,7 +323,7 @@ func Build(q *ast.Query, info *sema.Info, src string, cfg Config) (*Plan, error)
 			return nil, err
 		}
 	}
-	return &Plan{Root: p.op, Out: p.part, Columns: info.Columns, MaxHops: cfg.MaxHops, Src: src}, nil
+	return &Plan{Root: p.op, Out: p.part, Columns: info.Columns, MaxHops: cfg.MaxHops, Src: src, Write: info.Write}, nil
 }
 
 // planner builds the plan clause by clause.
@@ -329,6 +340,9 @@ type planner struct {
 	// cluster is the slot whose equal values are contiguous in the rows
 	// of op, and never come back once they end; -1 when unknown.
 	cluster int
+	// write is set after a clause that writes: a LIMIT then reads all its
+	// input, so that it never cuts effects.
+	write bool
 }
 
 func (p *planner) clause(c ast.Clause) error {
@@ -357,8 +371,20 @@ func (p *planner) clause(c ast.Clause) error {
 		return p.projection(c.Projection)
 	case *ast.Call:
 		return failf(p.src, c.Span, errs.CodeQueryUnsupported, errs.StagePlan, "CALL is not available in this version")
-	default:
-		return failf(p.src, c.Pos(), errs.CodeQueryWriteRequiresExec, errs.StageSemantic, "a query that writes needs Exec")
+	case *ast.Create:
+		return p.create(c)
+	case *ast.Merge:
+		return p.merge(c)
+	case *ast.Set:
+		items, err := p.setItems(c.Items)
+		if err != nil {
+			return err
+		}
+		p.written(&Set{In: p.op, Items: items, Span: c.Span})
+	case *ast.Remove:
+		p.written(&Remove{In: p.op, Items: p.removeItems(c.Items), Span: c.Span})
+	case *ast.Delete:
+		return p.delete(c)
 	}
 	return nil
 }

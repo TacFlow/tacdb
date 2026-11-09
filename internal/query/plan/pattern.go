@@ -34,6 +34,20 @@ func (p *planner) match(c *ast.Match) error {
 	if c.Optional {
 		p.op, p.single = &Argument{Part: p.part}, false
 	}
+	st, err := p.matchPatterns(c)
+	if err != nil {
+		return err
+	}
+	if c.Optional {
+		p.op = &OptionalApply{In: outer, Inner: p.op, Slots: st.fresh}
+		p.single = false
+	}
+	return nil
+}
+
+// matchPatterns plans the patterns and the WHERE of a clause over p.op and
+// returns the slots it gave each element.
+func (p *planner) matchPatterns(c *ast.Match) (*clauseState, error) {
 	st := &clauseState{bound: map[int]bool{}, before: map[int]bool{}, slots: map[*ast.NodePattern]int{}, rels: map[*ast.RelPattern]int{}}
 	for _, s := range p.names {
 		st.bound[s], st.before[s] = true, true
@@ -50,7 +64,7 @@ func (p *planner) match(c *ast.Match) error {
 		}
 	}
 	if err := p.checkLengths(c); err != nil {
-		return err
+		return nil, err
 	}
 	done := make([]bool, len(c.Patterns))
 	for {
@@ -60,28 +74,24 @@ func (p *planner) match(c *ast.Match) error {
 		}
 		done[pi] = true
 		if err := p.chain(c.Patterns[pi], start, st, c.Where); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for _, x := range st.deferred {
 		pred, err := p.compile(x, p.scope())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		p.op = &Filter{In: p.op, Pred: pred}
 	}
 	if c.Where != nil {
 		pred, err := p.compile(c.Where, p.scope())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		p.op = &Filter{In: p.op, Pred: pred}
 	}
-	if c.Optional {
-		p.op = &OptionalApply{In: outer, Inner: p.op, Slots: st.fresh}
-		p.single = false
-	}
-	return nil
+	return st, nil
 }
 
 // elementSlot returns the slot of a pattern element: the slot of its
