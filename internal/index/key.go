@@ -8,9 +8,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"math"
-	"slices"
 
 	"github.com/TacFlow/tacdb/internal/codec"
+	"github.com/TacFlow/tacdb/internal/equal"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/value"
 )
@@ -76,7 +76,7 @@ func appendSortable(dst []byte, v value.Value, prefixBytes int) ([]byte, form, e
 		b, _ := v.AsBytes()
 		return appendText(dst, tagBytes, string(b), prefixBytes)
 	}
-	sum := sha256.Sum256(equalKey(nil, v))
+	sum := sha256.Sum256(equal.AppendKey(nil, v))
 	return append(append(dst, tagHash), sum[:]...), hashed, nil
 }
 
@@ -149,113 +149,4 @@ func sibling(v value.Value) (value.Value, bool) {
 		}
 	}
 	return value.Value{}, false
-}
-
-// Tags of the equality key.
-const (
-	eqNull   = 0x00
-	eqBool   = 0x01
-	eqNumber = 0x02 // a finite non-zero number as sign, exponent and odd mantissa
-	eqZero   = 0x03
-	eqNaN    = 0x04
-	eqPosInf = 0x05
-	eqNegInf = 0x06
-	eqString = 0x07
-	eqBytes  = 0x08
-	eqVector = 0x09
-	eqList   = 0x0A
-	eqMap    = 0x0B
-)
-
-// equalKey appends the canonical equality key of v (SPEC §12.2): equal
-// values by the codec of equality give equal bytes. A finite number is
-// its exact reduced binary fraction, so Int 1, Float 1.0 and -0, +0 meet;
-// every NaN is one marker; lists and maps recurse, maps in key order.
-func equalKey(dst []byte, v value.Value) []byte {
-	switch v.Kind() {
-	case value.KindNull:
-		return append(dst, eqNull)
-	case value.KindBool:
-		b, _ := v.AsBool()
-		if b {
-			return append(dst, eqBool, 1)
-		}
-		return append(dst, eqBool, 0)
-	case value.KindInt:
-		i, _ := v.AsInt()
-		neg := i < 0
-		m := uint64(i)
-		if neg {
-			m = -m // two's complement: also right for MinInt64
-		}
-		return appendFraction(dst, neg, m, 0)
-	case value.KindFloat:
-		f, _ := v.AsFloat()
-		return appendFloat(dst, f)
-	case value.KindString:
-		s, _ := v.AsString()
-		return append(binary.BigEndian.AppendUint32(append(dst, eqString), uint32(len(s))), s...)
-	case value.KindBytes:
-		b, _ := v.AsBytes()
-		return append(binary.BigEndian.AppendUint32(append(dst, eqBytes), uint32(len(b))), b...)
-	case value.KindVector:
-		dst = binary.BigEndian.AppendUint32(append(dst, eqVector), uint32(v.Len()))
-		for i := 0; i < v.Len(); i++ {
-			dst = appendFloat(dst, float64(v.VectorAt(i)))
-		}
-		return dst
-	case value.KindList:
-		dst = binary.BigEndian.AppendUint32(append(dst, eqList), uint32(v.Len()))
-		for i := 0; i < v.Len(); i++ {
-			dst = equalKey(dst, v.Index(i))
-		}
-		return dst
-	case value.KindMap:
-		dst = binary.BigEndian.AppendUint32(append(dst, eqMap), uint32(v.Len()))
-		for i := 0; i < v.Len(); i++ {
-			k, item := v.EntryAt(i)
-			dst = append(binary.BigEndian.AppendUint32(dst, uint32(len(k))), k...)
-			dst = equalKey(dst, item)
-		}
-		return dst
-	}
-	panic("index: unknown value kind")
-}
-
-func appendFloat(dst []byte, f float64) []byte {
-	switch {
-	case math.IsNaN(f):
-		return append(dst, eqNaN)
-	case math.IsInf(f, 1):
-		return append(dst, eqPosInf)
-	case math.IsInf(f, -1):
-		return append(dst, eqNegInf)
-	}
-	frac, exp := math.Frexp(math.Abs(f)) // |f| = frac * 2^exp, frac in [0.5, 1)
-	m := uint64(math.Ldexp(frac, 53))    // exact: 53 bits of mantissa
-	return appendFraction(dst, f < 0, m, exp-53)
-}
-
-// appendFraction appends ±m * 2^e reduced to an odd mantissa.
-func appendFraction(dst []byte, neg bool, m uint64, e int) []byte {
-	if m == 0 {
-		return append(dst, eqZero)
-	}
-	for m&1 == 0 {
-		m >>= 1
-		e++
-	}
-	sign := byte(0)
-	if neg {
-		sign = 1
-	}
-	dst = append(dst, eqNumber, sign)
-	dst = binary.BigEndian.AppendUint32(dst, uint32(int32(e)))
-	return binary.BigEndian.AppendUint64(dst, m)
-}
-
-// equal reports whether a and b are equal by the codec of equality, the
-// equality of uniqueness.
-func equal(a, b value.Value) bool {
-	return slices.Equal(equalKey(nil, a), equalKey(nil, b))
 }
