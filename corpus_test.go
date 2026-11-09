@@ -3,6 +3,7 @@ package tacdb
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"slices"
@@ -18,22 +19,28 @@ import (
 	"github.com/TacFlow/tacdb/value"
 )
 
-// The corpus of read queries (design §7): cases transcribed from the
+// The corpora of queries (design §7): cases transcribed from the
 // inventory of the reference with the results tacdb gives, each marked
-// parity or divergence, and cases of tacdb's own. Setups are CREATE
-// statements, which the runner reads with the parser and runs through the
-// typed graph calls, so that reads are tested before the executor writes.
+// parity or divergence, and cases of tacdb's own. The setups of the read
+// corpus are CREATE statements, which the runner reads with the parser
+// and runs through the typed graph calls, and again through Exec: both
+// ways must give the same results. The write corpus runs its setups and
+// its queries through Exec, and checks the counters and the graph after
+// each query too.
 
 type corpusCase struct {
-	Name     string                     `json:"name"`
-	Source   string                     `json:"source"`
-	Kind     string                     `json:"kind"`
-	Decision string                     `json:"decision,omitempty"`
-	Note     string                     `json:"note,omitempty"`
-	Setup    []string                   `json:"setup"`
-	Query    string                     `json:"query"`
-	Params   map[string]json.RawMessage `json:"params,omitempty"`
-	Expect   corpusExpect               `json:"expect"`
+	Name     string   `json:"name"`
+	Source   string   `json:"source"`
+	Kind     string   `json:"kind"`
+	Decision string   `json:"decision,omitempty"`
+	Note     string   `json:"note,omitempty"`
+	Setup    []string `json:"setup"`
+	// SetupErrors are the setup statements that fail, as in the
+	// inventory: their errors are expected and their effects absent.
+	SetupErrors []int                      `json:"setupErrors,omitempty"`
+	Query       string                     `json:"query"`
+	Params      map[string]json.RawMessage `json:"params,omitempty"`
+	Expect      corpusExpect               `json:"expect"`
 }
 
 type corpusExpect struct {
@@ -42,6 +49,10 @@ type corpusExpect struct {
 	RowCount *int                `json:"rowCount,omitempty"`
 	Columns  []string            `json:"columns,omitempty"`
 	Error    string              `json:"error,omitempty"`
+	// Stats are the counters of a query that writes, by name.
+	Stats map[string]uint64 `json:"stats,omitempty"`
+	// Graph is the graph after the query, as dumpDB renders it.
+	Graph []string `json:"graph,omitempty"`
 }
 
 // typed is a value of the corpus.
@@ -335,23 +346,53 @@ func runSetup(t *testing.T, db *DB, setup []string) {
 	}
 }
 
-// corpusResult runs a case and returns its rows in typed form, or its
-// error code.
-func corpusResult(t *testing.T, c corpusCase) (rows [][]any, cols []string, errCode Code) {
+// execSetup runs the statements of a setup with Exec; those in errors
+// must fail.
+func execSetup(t *testing.T, db *DB, c corpusCase) {
+	t.Helper()
+	for i, src := range c.Setup {
+		_, err := db.Exec(bg, src, nil)
+		if fails := slices.Contains(c.SetupErrors, i); (err != nil) != fails {
+			t.Fatalf("%s: setup %s: %v", c.Name, src, err)
+		}
+	}
+}
+
+func corpusParams(t *testing.T, c corpusCase) Params {
+	params := Params{}
+	for k, raw := range c.Params {
+		var err error
+		if params[k], err = toValue(raw); err != nil {
+			t.Fatalf("%s: parameter %s: %v", c.Name, k, err)
+		}
+	}
+	return params
+}
+
+func encodeRow(r []QueryValue) []any {
+	out := []any{}
+	for _, v := range r {
+		out = append(out, encodeResult(v))
+	}
+	return out
+}
+
+// corpusResult runs a read case and returns its rows in typed form, or
+// its error code; viaExec runs the setup with Exec instead of the typed
+// calls.
+func corpusResult(t *testing.T, c corpusCase, viaExec bool) (rows [][]any, cols []string, errCode Code) {
 	t.Helper()
 	db, err := OpenMemory(options())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	runSetup(t, db, c.Setup)
-	params := Params{}
-	for k, raw := range c.Params {
-		if params[k], err = toValue(raw); err != nil {
-			t.Fatalf("%s: parameter %s: %v", c.Name, k, err)
-		}
+	if viaExec {
+		execSetup(t, db, c)
+	} else {
+		runSetup(t, db, c.Setup)
 	}
-	rs, err := db.Query(bg, c.Query, params)
+	rs, err := db.Query(bg, c.Query, corpusParams(t, c))
 	if err != nil {
 		return nil, nil, code(err)
 	}
@@ -359,16 +400,95 @@ func corpusResult(t *testing.T, c corpusCase) (rows [][]any, cols []string, errC
 		cols = append(cols, col.Name)
 	}
 	for rs.Next() {
-		var r []any
-		for _, v := range rs.Values() {
-			r = append(r, encodeResult(v))
-		}
-		rows = append(rows, r)
+		rows = append(rows, encodeRow(rs.Values()))
 	}
 	if err := rs.Err(); err != nil {
 		return nil, cols, code(err)
 	}
 	return rows, cols, ""
+}
+
+// writeResult runs a case of the write corpus: its rows, columns and
+// error, its counters and the graph after it.
+func writeResult(t *testing.T, c corpusCase) (rows [][]any, cols []string, errCode Code, stats map[string]uint64, graph []string) {
+	t.Helper()
+	db, err := OpenMemory(options())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	execSetup(t, db, c)
+	res, err := db.Exec(bg, c.Query, corpusParams(t, c))
+	graph = dumpDB(t, db)
+	if err != nil {
+		return nil, nil, code(err), nil, graph
+	}
+	for _, col := range res.Columns {
+		cols = append(cols, col.Name)
+	}
+	for _, r := range res.Rows {
+		rows = append(rows, encodeRow(r))
+	}
+	s := res.Stats
+	stats = map[string]uint64{}
+	for k, v := range map[string]uint64{"nodesCreated": s.NodesCreated, "nodesDeleted": s.NodesDeleted,
+		"edgesCreated": s.EdgesCreated, "edgesDeleted": s.EdgesDeleted, "propertiesSet": s.PropertiesSet,
+		"labelsAdded": s.LabelsAdded, "labelsRemoved": s.LabelsRemoved} {
+		if v != 0 {
+			stats[k] = v
+		}
+	}
+	return rows, cols, "", stats, graph
+}
+
+// checkCase compares a result with the expectation of its case.
+func checkCase(t *testing.T, c corpusCase, rows [][]any, cols []string, errCode Code) {
+	t.Helper()
+	if c.Expect.Error != "" || errCode != "" {
+		if string(errCode) != c.Expect.Error {
+			t.Errorf("%s: %s: error %q, want %q", c.Name, c.Query, errCode, c.Expect.Error)
+		}
+		return
+	}
+	if c.Expect.RowCount != nil && len(rows) != *c.Expect.RowCount {
+		t.Errorf("%s: %s: %d rows, want %d", c.Name, c.Query, len(rows), *c.Expect.RowCount)
+	}
+	if c.Expect.Columns != nil && !slices.Equal(cols, c.Expect.Columns) {
+		t.Errorf("%s: columns %q, want %q", c.Name, cols, c.Expect.Columns)
+	}
+	if c.Expect.Rows == nil {
+		return
+	}
+	var gotRaw [][]json.RawMessage
+	for _, r := range rows {
+		var rr []json.RawMessage
+		for _, v := range r {
+			b, _ := json.Marshal(v)
+			rr = append(rr, b)
+		}
+		gotRaw = append(gotRaw, rr)
+	}
+	got, want := rowTexts(gotRaw), rowTexts(c.Expect.Rows)
+	if !c.Expect.Ordered {
+		sort.Strings(got)
+		sort.Strings(want)
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("%s: %s:\n got  %q\n want %q", c.Name, c.Query, got, want)
+	}
+}
+
+// checkKinds checks the marks of a case.
+func checkKinds(t *testing.T, c corpusCase, seen map[string]bool) {
+	t.Helper()
+	if seen[c.Name] {
+		t.Fatalf("case %q twice", c.Name)
+	}
+	seen[c.Name] = true
+	if c.Kind != "parity" && c.Kind != "divergence" || c.Source != "reference" && c.Source != "tacdb" ||
+		(c.Kind == "divergence") != (c.Decision != "") {
+		t.Fatalf("%s: kind %q, source %q, decision %q", c.Name, c.Kind, c.Source, c.Decision)
+	}
 }
 
 func rowTexts(rows [][]json.RawMessage) []string {
@@ -401,51 +521,53 @@ func TestReadCorpus(t *testing.T) {
 	var dumped []map[string]any
 	seen := map[string]bool{}
 	for _, c := range cases {
-		if seen[c.Name] {
-			t.Fatalf("case %q twice", c.Name)
+		checkKinds(t, c, seen)
+		rows, cols, errCode := corpusResult(t, c, false)
+		// The same setup through Exec gives the same results.
+		xrows, xcols, xerr := corpusResult(t, c, true)
+		a, _ := json.Marshal([]any{rows, cols, errCode})
+		b, _ := json.Marshal([]any{xrows, xcols, xerr})
+		if string(a) != string(b) {
+			t.Errorf("%s: the setup through Exec gives\n %s\nnot\n %s", c.Name, b, a)
 		}
-		seen[c.Name] = true
-		if c.Kind != "parity" && c.Kind != "divergence" || c.Source != "reference" && c.Source != "tacdb" ||
-			(c.Kind == "divergence") != (c.Decision != "") {
-			t.Fatalf("%s: kind %q, source %q, decision %q", c.Name, c.Kind, c.Source, c.Decision)
-		}
-		rows, cols, errCode := corpusResult(t, c)
 		if dump != "" {
 			raw, _ := json.Marshal(rows)
 			dumped = append(dumped, map[string]any{"name": c.Name, "rows": json.RawMessage(raw), "columns": cols, "error": errCode})
 			continue
 		}
-		if c.Expect.Error != "" || errCode != "" {
-			if string(errCode) != c.Expect.Error {
-				t.Errorf("%s: %s: error %q, want %q", c.Name, c.Query, errCode, c.Expect.Error)
-			}
+		checkCase(t, c, rows, cols, errCode)
+	}
+	if dump != "" {
+		b, _ := json.MarshalIndent(dumped, "", " ")
+		if err := os.WriteFile(dump, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// TestWriteCorpus runs the corpus of queries that write (QRY-01 for
+// writes, QRY-05): rows, errors, counters and the graph after each query;
+// a query that fails leaves the graph of its setup.
+func TestWriteCorpus(t *testing.T) {
+	cases := loadCorpus(t, "testdata/corpus/write.json")
+	dump := os.Getenv("TACDB_WRITE_CORPUS_DUMP")
+	var dumped []map[string]any
+	seen := map[string]bool{}
+	for _, c := range cases {
+		checkKinds(t, c, seen)
+		rows, cols, errCode, stats, graph := writeResult(t, c)
+		if dump != "" {
+			raw, _ := json.Marshal(rows)
+			dumped = append(dumped, map[string]any{"name": c.Name, "rows": json.RawMessage(raw), "columns": cols,
+				"error": errCode, "stats": stats, "graph": graph})
 			continue
 		}
-		if c.Expect.RowCount != nil && len(rows) != *c.Expect.RowCount {
-			t.Errorf("%s: %s: %d rows, want %d", c.Name, c.Query, len(rows), *c.Expect.RowCount)
+		checkCase(t, c, rows, cols, errCode)
+		if c.Expect.Error == "" && !maps.Equal(stats, c.Expect.Stats) && (len(stats) > 0 || len(c.Expect.Stats) > 0) {
+			t.Errorf("%s: %s: counters %v, want %v", c.Name, c.Query, stats, c.Expect.Stats)
 		}
-		if c.Expect.Columns != nil && !slices.Equal(cols, c.Expect.Columns) {
-			t.Errorf("%s: columns %q, want %q", c.Name, cols, c.Expect.Columns)
-		}
-		if c.Expect.Rows == nil {
-			continue
-		}
-		var gotRaw [][]json.RawMessage
-		for _, r := range rows {
-			var rr []json.RawMessage
-			for _, v := range r {
-				b, _ := json.Marshal(v)
-				rr = append(rr, b)
-			}
-			gotRaw = append(gotRaw, rr)
-		}
-		got, want := rowTexts(gotRaw), rowTexts(c.Expect.Rows)
-		if !c.Expect.Ordered {
-			sort.Strings(got)
-			sort.Strings(want)
-		}
-		if !slices.Equal(got, want) {
-			t.Errorf("%s: %s:\n got  %q\n want %q", c.Name, c.Query, got, want)
+		if !slices.Equal(graph, c.Expect.Graph) && (len(graph) > 0 || len(c.Expect.Graph) > 0) {
+			t.Errorf("%s: %s: graph\n got  %q\n want %q", c.Name, c.Query, graph, c.Expect.Graph)
 		}
 	}
 	if dump != "" {
