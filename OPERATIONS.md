@@ -130,11 +130,20 @@ Each query runs under the limits of its handle (§15.4 of the specification). Go
 | `MaxParams` | distinct parameters | 1024 | `LIMIT_EXCEEDED` |
 | `MaxHops` | a variable-length relationship | 64 | `RESOURCE_LIMIT` |
 | `MaxExpansions` | edges read by the variable-length relationships of a query | 1 million | `RESOURCE_LIMIT` |
-| `QueryMemoryBytes` | memory one execution keeps: sorted rows, groups, DISTINCT keys, built lists, the current row | 64 MiB | `RESOURCE_LIMIT` |
+| `QueryMemoryBytes` | memory one execution keeps: sorted rows, groups, DISTINCT keys, built lists, the current row, the rows of a clause that writes | 64 MiB | `RESOURCE_LIMIT` |
 | `QueryWorkUnits` | rows produced by operators, entities scanned and edges read | 100 million | `RESOURCE_LIMIT` |
+| `ResultMemoryBytes` | the rows `Exec` materializes | 64 MiB | `RESOURCE_LIMIT` |
 
 The memory of a query also comes from the execution category of the governor (§1.1): with many queries at once, the ones that do not get it in time fail with `RESOURCE_LIMIT`, while the others finish. A query checks its context and its snapshot every 256 rows produced, entities scanned or edges read; give long reads a deadline.
 
 ### 6.2 Cursors
 
 A `Rows` keeps its transaction's snapshot until its end, an error or `Close`. Close it as soon as it is no longer needed: while it is open, `Commit` of its transaction and writes in it fail with `BUSY`, and the snapshot it holds keeps old pages and log segments (§4.2). A `Rows` of `DB.Query` closes its own read transaction at its end.
+
+### 6.3 Writes
+
+`Exec` runs a query to its end and returns all its rows. `DB.Exec` takes the writer for a query that writes, so it waits in the writer queue like `BeginWrite` (§3.2), and commits with the durability of the handle; a failure leaves no effect. `Tx.Exec` is one statement of the transaction: a failure undoes that statement and the transaction goes on.
+
+Each clause that writes holds all its rows in memory before its first effect, under `QueryMemoryBytes`: a write over millions of rows needs batches, each one its own `Exec` with a `LIMIT` before the write, such as `MATCH (n:Old) WITH n LIMIT 10000 DETACH DELETE n`. Its effects also count toward `MaxTxBytes` of the transaction. A `LIMIT` after a write never cuts its effects, so it does not bound that work.
+
+When the context of `DB.Exec` ends after its commit is sealed, `Exec` returns `COMMIT_PENDING` with `Result.Pending` and `Result.Token`: the commit goes on (§3.3). Do not run the query again; ask `CommitStatus(token)`, or wait with `WaitDurable`.
