@@ -78,6 +78,7 @@ type DB struct {
 
 	work     workers
 	readOnly bool
+	q        queryLimits
 
 	mu     sync.Mutex // serializes Close
 	closed bool
@@ -121,7 +122,7 @@ func open(fs vfs.FS, name string, opts Options) (*DB, error) {
 		Symbols:          catalog.NewCache(symbolCacheSize),
 		Indexes:          &index.Cache{},
 	}
-	db := &DB{e: e, fs: fs, g: g, readOnly: opts.ReadOnly}
+	db := &DB{e: e, fs: fs, g: g, readOnly: opts.ReadOnly, q: opts.queries()}
 	db.work = workers{db: db, batchBytes: min(opts.IndexBuildBatchBytes, opts.MaxTxBytes/2), purgeBatch: purgeBatch}
 	if !opts.ReadOnly {
 		db.work.start()
@@ -184,6 +185,7 @@ func (db *DB) View(ctx context.Context, fn func(*Tx) error) error {
 	tx.managed = true
 	defer func() {
 		tx.acquire() // a call fn left running ends first
+		tx.closeCursors(errs.CodeTxClosed)
 		tx.r.Close()
 		tx.leave()
 	}()
@@ -206,6 +208,7 @@ func (db *DB) Update(ctx context.Context, fn func(*Tx) error) error {
 		if !held {
 			tx.acquire()
 		}
+		tx.closeCursors(errs.CodeTxClosed)
 		if !ok {
 			tx.w.Rollback() // after a sealed commit, a no-op
 		}
