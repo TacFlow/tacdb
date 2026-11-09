@@ -255,6 +255,22 @@ type QueryStats struct {
 	Complete  bool     // every row was returned, without error
 	PlanMode  string   // "syntactic" until the planner by cost
 	WorkUnits uint64
+	// The effects of a query that writes (D-017): entities created and
+	// deleted, each once, with the relationships DETACH DELETE removes;
+	// properties written with a value or removed when present; labels of
+	// new nodes and labels added or removed.
+	NodesCreated, NodesDeleted uint64
+	EdgesCreated, EdgesDeleted uint64
+	PropertiesSet              uint64
+	LabelsAdded, LabelsRemoved uint64
+}
+
+// mutations copies the counters of effects of an execution.
+func (s *QueryStats) mutations(m exec.Mutations) {
+	s.NodesCreated, s.NodesDeleted = m.NodesCreated, m.NodesDeleted
+	s.EdgesCreated, s.EdgesDeleted = m.EdgesCreated, m.EdgesDeleted
+	s.PropertiesSet = m.PropertiesSet
+	s.LabelsAdded, s.LabelsRemoved = m.LabelsAdded, m.LabelsRemoved
 }
 
 // queryLimits are the query options of a handle.
@@ -265,6 +281,7 @@ type queryLimits struct {
 	exec    exec.Config
 	budget  budget.Limits
 	maxPars int
+	result  int64 // ResultMemoryBytes
 }
 
 func (o Options) queries() queryLimits {
@@ -275,6 +292,7 @@ func (o Options) queries() queryLimits {
 		exec:    exec.Config{MaxExpansions: o.MaxExpansions},
 		budget:  budget.Limits{MemoryBytes: o.QueryMemoryBytes, WorkUnits: o.QueryWorkUnits, Values: o.ValueLimits},
 		maxPars: o.MaxParams,
+		result:  o.ResultMemoryBytes,
 	}
 }
 
@@ -346,19 +364,8 @@ func (tx *Tx) query(ctx context.Context, text string, p Params, _ QueryOptions, 
 		return nil, err
 	}
 	lim := tx.db.q
-	q, err := parser.Parse(text, lim.parse)
+	pl, _, err := tx.db.compile(text, p, false)
 	if err != nil {
-		return nil, err
-	}
-	info, err := sema.Analyze(q, text, lim.sema)
-	if err != nil {
-		return nil, err
-	}
-	pl, err := plan.Build(q, info, text, lim.plan)
-	if err != nil {
-		return nil, err
-	}
-	if err := info.CheckParams(p, lim.maxPars); err != nil {
 		return nil, err
 	}
 	b, err := budget.New(ctx, tx.db.e.Governor(), lim.budget)
@@ -379,6 +386,30 @@ func (tx *Tx) query(ctx context.Context, text string, p Params, _ QueryOptions, 
 	}
 	tx.cursors[rows] = struct{}{}
 	return rows, nil
+}
+
+// compile parses, analyzes and plans a query, and checks its parameters.
+// Only Exec plans a query that writes.
+func (db *DB) compile(text string, p Params, write bool) (*plan.Plan, *sema.Info, error) {
+	lim := db.q
+	q, err := parser.Parse(text, lim.parse)
+	if err != nil {
+		return nil, nil, err
+	}
+	info, err := sema.Analyze(q, text, lim.sema)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg := lim.plan
+	cfg.Write = write
+	pl, err := plan.Build(q, info, text, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := info.CheckParams(p, lim.maxPars); err != nil {
+		return nil, nil, err
+	}
+	return pl, info, nil
 }
 
 // Columns returns the columns of the result; the slice belongs to the
@@ -411,7 +442,7 @@ func (r *Rows) Next() bool {
 	for i := range vals {
 		v, n, err := r.tx.db.materialize(reader, row[i])
 		if err != nil {
-			r.err = err
+			r.err = exec.Staged(err)
 			r.finish()
 			return false
 		}

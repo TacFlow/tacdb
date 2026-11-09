@@ -57,7 +57,10 @@ func (x *Exec) build(op plan.Op, arg Row) iter {
 	case *plan.Skip:
 		return &skip{x: x, in: x.build(o.In, arg), count: o.X}
 	case *plan.Limit:
-		return &limit{x: x, in: x.build(o.In, arg), count: o.X}
+		return &limit{x: x, in: x.build(o.In, arg), count: o.X, exhaustive: o.Exhaustive}
+	}
+	if it := x.buildWrite(op, arg); it != nil {
+		return it
 	}
 	panic("exec: unknown operator " + op.Name())
 }
@@ -576,13 +579,16 @@ func (s *skip) next() (Row, bool, error) {
 
 func (s *skip) close() { s.in.close() }
 
-// limit yields the first rows; LIMIT 0 reads nothing.
+// limit yields the first rows; LIMIT 0 reads nothing, unless the limit
+// is exhaustive: then it reads its whole input, which runs the effects of
+// the clauses that write before it.
 type limit struct {
-	x     *Exec
-	in    iter
-	count plan.Expr
-	left  int64
-	init  bool
+	x          *Exec
+	in         iter
+	count      plan.Expr
+	left       int64
+	init       bool
+	exhaustive bool
 }
 
 func (l *limit) next() (Row, bool, error) {
@@ -594,10 +600,24 @@ func (l *limit) next() (Row, bool, error) {
 		l.left, l.init = n, true
 	}
 	if l.left == 0 {
+		if l.exhaustive {
+			l.exhaustive = false
+			return nil, false, drain(l.in)
+		}
 		return nil, false, nil
 	}
 	l.left--
 	return l.in.next()
+}
+
+// drain reads the rest of in.
+func drain(in iter) error {
+	for {
+		_, ok, err := in.next()
+		if err != nil || !ok {
+			return err
+		}
+	}
 }
 
 func (l *limit) close() { l.in.close() }

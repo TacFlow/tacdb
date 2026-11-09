@@ -113,9 +113,16 @@ type Options struct {
 	MaxExpansions    int64  // edges read by the variable-length relationships of a query
 	QueryMemoryBytes int64  // memory of one execution, from the execution category of the governor
 	QueryWorkUnits   uint64 // rows produced by operators, entities scanned and edges read
+	// ResultMemoryBytes bounds the rows Exec materializes, also charged to
+	// the execution category of the governor.
+	ResultMemoryBytes int64
 
 	governor *govern.Governor // tests: a governor of their own
 }
+
+// DefaultResultMemoryBytes is the default of ResultMemoryBytes (SPEC
+// §24.1).
+const DefaultResultMemoryBytes = 64 << 20
 
 // DefaultOptions returns the defaults of SPEC §24.1, with Create set.
 func DefaultOptions() Options {
@@ -161,6 +168,7 @@ func DefaultOptions() Options {
 		MaxExpansions:             exec.DefaultMaxExpansions,
 		QueryMemoryBytes:          budget.DefaultMemoryBytes,
 		QueryWorkUnits:            budget.DefaultWorkUnits,
+		ResultMemoryBytes:         DefaultResultMemoryBytes,
 	}
 }
 
@@ -215,6 +223,8 @@ func (o Options) check() error {
 		return bad("QueryMemoryBytes")
 	case o.QueryWorkUnits == 0:
 		return bad("QueryWorkUnits")
+	case o.ResultMemoryBytes <= 0:
+		return bad("ResultMemoryBytes")
 	}
 	return o.ValueLimits.Check()
 }

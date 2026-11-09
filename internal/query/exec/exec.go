@@ -1,10 +1,10 @@
-// Package exec runs the plans of tacdb-cypher/1 read queries (SPEC
-// §15.3, §33): each operator of the plan becomes an iterator with Next
-// and Close, pulled one row at a time from the root. Close runs on
-// success, error, cancellation and an early end by LIMIT. Rows are
-// slices of slots; operators that keep rows (Sort, TopK, Aggregate,
-// Distinct) charge them to the budget of the execution before they keep
-// them.
+// Package exec runs the plans of tacdb-cypher/1 queries (SPEC §15.3,
+// §33): each operator of the plan becomes an iterator with Next and
+// Close, pulled one row at a time from the root. Close runs on success,
+// error, cancellation and an early end by LIMIT. Rows are slices of
+// slots; operators that keep rows (Sort, TopK, Aggregate, Distinct and
+// the clauses that write) charge them to the budget of the execution
+// before they keep them.
 package exec
 
 import (
@@ -36,10 +36,12 @@ type Row []qv.Value
 func (r Row) Slot(i int) qv.Value { return r[i] }
 
 // Source reads the graph of one transaction for the executor and for the
-// expressions it evaluates.
+// expressions it evaluates. W, the statement of a query that writes, is
+// also its reader; it is nil for a read.
 type Source struct {
 	G *graph.Graph
 	R engine.Reader
+	W *engine.Stmt
 }
 
 var _ eval.Graph = Source{}
@@ -77,10 +79,11 @@ type Config struct {
 	MaxExpansions int64 // 0 is the default
 }
 
-// Stats counts the work of an execution.
+// Stats counts the work and the effects of an execution.
 type Stats struct {
 	Rows     uint64 // rows of the result
 	Examined uint64 // entities scanned and edges read
+	Mutations
 }
 
 // Exec is one execution of a plan. It is not safe for concurrent use.
@@ -118,7 +121,7 @@ func (x *Exec) Next() (Row, bool) {
 	}
 	r, ok, err := x.root.next()
 	if err != nil || !ok {
-		x.err = staged(err)
+		x.err = Staged(err)
 		x.Close()
 		return nil, false
 	}
@@ -126,9 +129,10 @@ func (x *Exec) Next() (Row, bool) {
 	return r, true
 }
 
-// staged marks an error of the execution that has no stage yet, such as
-// a limit of the budget, as an execution error.
-func staged(err error) error {
+// Staged marks an error of the execution that has no stage yet, such as
+// a limit of the budget or a read of an entity deleted by the query, as
+// an execution error.
+func Staged(err error) error {
 	if e, ok := err.(*errs.Error); ok && e.Stage == "" {
 		c := *e
 		c.Stage = errs.StageExecute

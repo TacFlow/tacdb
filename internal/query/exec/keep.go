@@ -582,6 +582,9 @@ func (t *topK) fill() error {
 		}
 	}
 	if k == 0 {
+		if t.op.Exhaustive {
+			return drain(t.in)
+		}
 		return nil
 	}
 	n := s + k
