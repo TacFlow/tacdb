@@ -1,0 +1,3113 @@
+[
+ {
+  "name": "database: string literals decode escape sequences",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (n:E {quote: \"say \\\"hi\\\"\", tab: \"a\\tb\", newline: \"a\\nb\", backslash: \"a\\\\b\"})",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "labelsAdded": 1,
+    "nodesCreated": 1,
+    "propertiesSet": 4
+   },
+   "graph": [
+    "(E {backslash: \"a\\\\b\", newline: \"a\\nb\", quote: \"say \\\"hi\\\"\", tab: \"a\\tb\"})"
+   ]
+  }
+ },
+ {
+  "name": "database: ORDER BY sorts by an aggregate, not before it",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'one'})",
+   "CREATE (a:Author {name: 'three'})",
+   "CREATE (a:Author {name: 'two'})",
+   "MATCH (a:Author {name:'one'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})"
+  ],
+  "query": "MATCH (a:Author)-[:WROTE]->(p:Paper) RETURN a.name AS name, count(p) AS papers ORDER BY papers DESC",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "three"
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "two"
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "one"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "(Author {name: \"one\"})",
+    "(Author {name: \"one\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})"
+   ]
+  }
+ },
+ {
+  "name": "database: ORDER BY sorts by an aggregate, not before it #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'one'})",
+   "CREATE (a:Author {name: 'three'})",
+   "CREATE (a:Author {name: 'two'})",
+   "MATCH (a:Author {name:'one'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})"
+  ],
+  "query": "MATCH (a:Author)-[:WROTE]->(p:Paper) RETURN a.name AS name, count(p) AS papers ORDER BY papers",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "one"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "two"
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "three"
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "(Author {name: \"one\"})",
+    "(Author {name: \"one\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})"
+   ]
+  }
+ },
+ {
+  "name": "database: ORDER BY sorts by an aggregate, not before it #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'one'})",
+   "CREATE (a:Author {name: 'three'})",
+   "CREATE (a:Author {name: 'two'})",
+   "MATCH (a:Author {name:'one'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})"
+  ],
+  "query": "MATCH (a:Author)-[:WROTE]->(p:Paper) RETURN a.name AS name, count(p) AS papers ORDER BY count(p) DESC",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "three"
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "two"
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "one"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "(Author {name: \"one\"})",
+    "(Author {name: \"one\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})"
+   ]
+  }
+ },
+ {
+  "name": "database: ORDER BY sorts by an aggregate, not before it #4",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'one'})",
+   "CREATE (a:Author {name: 'three'})",
+   "CREATE (a:Author {name: 'two'})",
+   "MATCH (a:Author {name:'one'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})"
+  ],
+  "query": "MATCH (a:Author)-[:WROTE]->(p:Paper) RETURN a.name AS name, count(p) AS papers ORDER BY name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "one"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "three"
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "two"
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "(Author {name: \"one\"})",
+    "(Author {name: \"one\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})"
+   ]
+  }
+ },
+ {
+  "name": "database: LIMIT after an aggregate takes the top rows, not any rows",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'one'})",
+   "CREATE (a:Author {name: 'three'})",
+   "CREATE (a:Author {name: 'two'})",
+   "MATCH (a:Author {name:'one'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'three'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})",
+   "MATCH (a:Author {name:'two'}) CREATE (a)-[:WROTE]->(:Paper {})"
+  ],
+  "query": "MATCH (a:Author)-[:WROTE]->(p:Paper) RETURN a.name AS name, count(p) AS papers ORDER BY papers DESC LIMIT 2",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "three"
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "two"
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "(Author {name: \"one\"})",
+    "(Author {name: \"one\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"three\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Author {name: \"two\"})-[WROTE {}]->(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})",
+    "(Paper {})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE relationship binds edge variable and inline properties",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (a:Person {name: \"Alice\"})-[r:KNOWS {since: 2024}]->(b:Person {name: \"Bob\"}) RETURN id(r), type(r), r.since",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "String",
+      "value": "KNOWS"
+     },
+     {
+      "type": "Int",
+      "value": 2024
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 3
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {since: 2024}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE relationship between existing nodes via MATCH",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:FRIENDS_WITH]->(b)"
+  ],
+  "query": "MATCH (a:Person)-[:FRIENDS_WITH]->(b:Person) RETURN a.name, b.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[FRIENDS_WITH {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE relationship fails on non-property value and does not create edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:REL {owner: a}]->(b)",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE relationship type alternation is rejected",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (:Person)-[:REL_A|REL_B]->(:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: CREATE relationship without type is rejected",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (:Person)-[]->(:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: CREATE undirected relationship pattern is rejected",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (:Person)<-[:REL]->(:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: CREATE relationship rejects variable-length quantifier",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "CREATE (a:Person)-[:REL*2]->(b:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: MERGE relationship rejects variable-length quantifier",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MERGE (:Person)-[:REL*1..2]->(:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: MERGE relationship without type is rejected",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MERGE (:Person)-[]->(:Person)",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: MERGE undirected relationship pattern is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "an undirected MERGE matches either direction and creates from left to right",
+  "setup": [],
+  "query": "MERGE (:Person)<-[:REL]->(:Person)",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "labelsAdded": 2,
+    "nodesCreated": 2
+   },
+   "graph": [
+    "(Person {})",
+    "(Person {})",
+    "(Person {})-[REL {}]->(Person {})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE multi-hop relationship chain is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "MERGE matches and creates a whole pattern of any length",
+  "setup": [],
+  "query": "MERGE (:Person)-[:REL]->(:Person)-[:REL]->(:Person)",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 2,
+    "labelsAdded": 3,
+    "nodesCreated": 3
+   },
+   "graph": [
+    "(Person {})",
+    "(Person {})",
+    "(Person {})",
+    "(Person {})-[REL {}]->(Person {})",
+    "(Person {})-[REL {}]->(Person {})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE multiple relationships forming a chain",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})",
+   "CREATE (b:Person {name: \"Bob\"})",
+   "CREATE (c:Person {name: \"Carol\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:KNOWS]->(b)",
+   "MATCH (b:Person {name: \"Bob\"}), (c:Person {name: \"Carol\"}) CREATE (b)-[:KNOWS]->(c)"
+  ],
+  "query": "MATCH (a:Person)-[:KNOWS]->(b:Person)-[:KNOWS]->(c:Person) RETURN a.name, b.name, c.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "Bob"
+     },
+     {
+      "type": "String",
+      "value": "Carol"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})-[KNOWS {}]->(Person {name: \"Carol\"})",
+    "(Person {name: \"Carol\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE node then connect to different label",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (p:Person {name: \"Alice\"})",
+   "CREATE (c:Company {name: \"Acme\", industry: \"Tech\"})",
+   "MATCH (p:Person {name: \"Alice\"}), (c:Company {name: \"Acme\"}) CREATE (p)-[:WORKS_AT]->(c)"
+  ],
+  "query": "MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN p.name, c.name, c.industry",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "Acme"
+     },
+     {
+      "type": "String",
+      "value": "Tech"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Company {industry: \"Tech\", name: \"Acme\"})",
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[WORKS_AT {}]->(Company {industry: \"Tech\", name: \"Acme\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: CREATE fails on non-property value and avoids partial node creation",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (p:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (p:Person {name: \"Alice\"}) CREATE (c:Copy {owner: p})",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE r removes only the matched parallel edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {w: 1}]->( {})",
+    "( {})-[REL {w: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE r removes only the matched parallel edge #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN id(r), r.w ORDER BY r.w ASC",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {w: 1}]->( {})",
+    "( {})-[REL {w: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE r removes only the matched parallel edge #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MATCH (a)-[r:REL]->(b) WHERE r.w = 1 DELETE r"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r), min(r.w), max(r.w), id(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {w: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE by id(r) removes exactly one parallel edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 10}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 20}]->(b)",
+   "MATCH (a)-[r:REL]->(b) WHERE id(r) = 1 DELETE r"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r), id(r), r.w",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 20
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {w: 20}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET property on edge variable",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"})",
+   "MATCH (a)-[r:REL]->(b) SET r.since = 2024"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN r.since",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2024
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {since: 2024}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET edge property updates only matched parallel edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MATCH (a)-[r:REL]->(b) WHERE r.w = 1 SET r.tag = \"selected\""
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) WHERE r.tag = \"selected\" RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {tag: \"selected\", w: 1}]->( {})",
+    "( {})-[REL {w: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET edge property updates only matched parallel edge #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE ()",
+   "CREATE ()",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MATCH (a)-[r:REL]->(b) WHERE r.w = 1 SET r.tag = \"selected\""
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) WHERE r.w = 2 RETURN r.tag",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "( {})",
+    "( {})",
+    "( {})-[REL {tag: \"selected\", w: 1}]->( {})",
+    "( {})-[REL {w: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET replace map works on edge variable",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1, stale: \"x\"}]->(b:Person {name: \"Bob\"})",
+   "MATCH (a)-[r:REL]->(b) SET r = {since: 2025}"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN r.since, r.w, r.stale",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2025
+     },
+     {
+      "type": "Null"
+     },
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {since: 2025}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET merge map works on edge variable",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1}]->(b:Person {name: \"Bob\"})",
+   "MATCH (a)-[r:REL]->(b) SET r += {w: 2, tag: \"updated\"}"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN r.w, r.tag",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "String",
+      "value": "updated"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {tag: \"updated\", w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET replace map on edge fails fast on non-property value",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1}]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) SET r = {owner: a}",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE untyped edge variable removes all matched edges",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})",
+   "CREATE (b:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:KNOWS]->(b)",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:COLLEAGUE]->(b)"
+  ],
+  "query": "MATCH (:Person)-[r]->(:Person) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[COLLEAGUE {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE untyped edge variable removes all matched edges #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})",
+   "CREATE (b:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:KNOWS]->(b)",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:COLLEAGUE]->(b)",
+   "MATCH (:Person)-[r]->(:Person) DELETE r"
+  ],
+  "query": "MATCH (:Person)-[r]->(:Person) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET updates existing property",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})",
+   "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.age",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 31
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {age: 31, name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET adds new property",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "MATCH (n:Person {name: \"Alice\"}) SET n.email = \"alice@example.com\""
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.email",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "alice@example.com"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {email: \"alice@example.com\", name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET multiple properties in sequence",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "MATCH (n:Person {name: \"Alice\"}) SET n.age = 30, n.city = \"NYC\""
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.age, n.city",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 30
+     },
+     {
+      "type": "String",
+      "value": "NYC"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {age: 30, city: \"NYC\", name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET replace fails fast on non-property value and preserves existing properties",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", city: \"NYC\"})"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) SET n = {self: n}",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {city: \"NYC\", name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET merge fails fast on non-property value and preserves row state",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) SET n += {self: n}",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {age: 30, name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET affects only matched nodes",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})",
+   "CREATE (n:Person {name: \"Bob\", age: 25})",
+   "MATCH (n:Person {name: \"Alice\"}) SET n.age = 31"
+  ],
+  "query": "MATCH (n:Person {name: \"Bob\"}) RETURN n.age",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 25
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {age: 25, name: \"Bob\"})",
+    "(Person {age: 31, name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: SET label on node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "MATCH (n:Person {name: \"Alice\"}) SET n:Admin"
+  ],
+  "query": "MATCH (n:Admin) RETURN n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person:Admin {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE removes node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "MATCH (n:Person {name: \"Alice\"}) DELETE n"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE with WHERE clause",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})",
+   "CREATE (n:Person {name: \"Bob\", age: 25})",
+   "CREATE (n:Person {name: \"Carol\", age: 35})",
+   "MATCH (n:Person) WHERE n.age < 30 DELETE n"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {age: 30, name: \"Alice\"})",
+    "(Person {age: 35, name: \"Carol\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DETACH DELETE removes node and edges",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:KNOWS]->(b:Person {name: \"Bob\"})",
+   "CREATE (c:Person {name: \"Carol\"})",
+   "MATCH (b:Person {name: \"Bob\"}), (c:Person {name: \"Carol\"}) CREATE (b)-[:KNOWS]->(c)",
+   "MATCH (n:Person {name: \"Bob\"}) DETACH DELETE n"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Carol\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DETACH DELETE removes node and edges #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:KNOWS]->(b:Person {name: \"Bob\"})",
+   "CREATE (c:Person {name: \"Carol\"})",
+   "MATCH (b:Person {name: \"Bob\"}), (c:Person {name: \"Carol\"}) CREATE (b)-[:KNOWS]->(c)",
+   "MATCH (n:Person {name: \"Bob\"}) DETACH DELETE n"
+  ],
+  "query": "MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN count(a)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Carol\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE all nodes of a label",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Temp {val: 1})",
+   "CREATE (n:Temp {val: 2})",
+   "CREATE (n:Temp {val: 3})",
+   "CREATE (n:Permanent {val: 99})",
+   "MATCH (n:Temp) DELETE n"
+  ],
+  "query": "MATCH (n:Temp) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Permanent {val: 99})"
+   ]
+  }
+ },
+ {
+  "name": "query: DELETE all nodes of a label #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Temp {val: 1})",
+   "CREATE (n:Temp {val: 2})",
+   "CREATE (n:Temp {val: 3})",
+   "CREATE (n:Permanent {val: 99})",
+   "MATCH (n:Temp) DELETE n"
+  ],
+  "query": "MATCH (n:Permanent) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Permanent {val: 99})"
+   ]
+  }
+ },
+ {
+  "name": "query: REMOVE property from node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30, temp: \"remove me\"})",
+   "MATCH (n:Person {name: \"Alice\"}) REMOVE n.temp"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.name, n.age",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "Int",
+      "value": 30
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {age: 30, name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: REMOVE property from edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"})",
+   "MATCH (a)-[r:REL]->(b) SET r.temp = \"x\"",
+   "MATCH (a)-[r:REL]->(b) REMOVE r.temp"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: REMOVE property from edge #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"})",
+   "MATCH (a)-[r:REL]->(b) SET r.temp = \"x\"",
+   "MATCH (a)-[r:REL]->(b) REMOVE r.temp"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) WHERE r.temp = \"x\" RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: REMOVE label from node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person:Admin {name: \"Alice\"})",
+   "MATCH (n:Admin {name: \"Alice\"}) REMOVE n:Admin"
+  ],
+  "query": "MATCH (n:Admin) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: REMOVE label from node #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person:Admin {name: \"Alice\"})",
+   "MATCH (n:Admin {name: \"Alice\"}) REMOVE n:Admin"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE creates node when not exists",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "MERGE (n:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE finds existing node and does not duplicate",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "MERGE (n:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE with ON CREATE SET",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "MERGE (n:Person {name: \"Alice\"}) ON CREATE SET n.status = \"new\""
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.status",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "new"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\", status: \"new\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE with ON MATCH SET",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", visits: 1})",
+   "MERGE (n:Person {name: \"Alice\"}) ON MATCH SET n.visits = 2"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.visits",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\", visits: 2})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE anonymous node with ON CREATE SET is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "ON CREATE and ON MATCH take any SET item, on any variable in scope",
+  "setup": [
+   "CREATE (x:Person {name: \"Seed\", visits: 1})"
+  ],
+  "query": "MATCH (x:Person {name: \"Seed\"}) MERGE (:Marker {name: \"Created\"}) ON CREATE SET x.visits = 2",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "labelsAdded": 1,
+    "nodesCreated": 1,
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(Marker {name: \"Created\"})",
+    "(Person {name: \"Seed\", visits: 2})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE ON CREATE SET labels is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "ON CREATE and ON MATCH take any SET item, labels too",
+  "setup": [],
+  "query": "MERGE (n:Person {name: \"Alice\"}) ON CREATE SET n:Admin",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "labelsAdded": 2,
+    "nodesCreated": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person:Admin {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship ON CREATE SET without edge variable is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "ON CREATE and ON MATCH take any SET item, on any variable in scope",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})",
+   "CREATE (b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[:REL]->(b) ON CREATE SET b.tag = \"x\"",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\", tag: \"x\"})",
+    "(Person {name: \"Bob\", tag: \"x\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE fails on non-property pattern value and does not create partial node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (p:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (p:Person {name: \"Alice\"}) MERGE (m:Mirror {owner: p})",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {name: \"Alice\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship with bound nodes is idempotent",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) RETURN id(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship with bound nodes is idempotent #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) RETURN id(r)"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) RETURN id(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship with bound nodes is idempotent #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) RETURN id(r)",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) RETURN id(r)"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship supports ON CREATE and ON MATCH set",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) ON CREATE SET r.since = 2020 ON MATCH SET r.since = 2021 RETURN id(r), r.since",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2020
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {since: 2020}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship supports ON CREATE and ON MATCH set #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) ON CREATE SET r.since = 2020 ON MATCH SET r.since = 2021 RETURN id(r), r.since"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) MERGE (a)-[r:REL]->(b) ON CREATE SET r.since = 2020 ON MATCH SET r.since = 2021 RETURN id(r), r.since",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2021
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {since: 2021}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship pattern properties match correct parallel edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {name: \"Alice\"})",
+   "CREATE (:Person {name: \"Bob\"})",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)"
+  ],
+  "query": "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 2}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship pattern properties match correct parallel edge #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {name: \"Alice\"})",
+   "CREATE (:Person {name: \"Bob\"})",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 2}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship pattern properties match correct parallel edge #3",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "without a match MERGE creates the whole pattern, new nodes too",
+  "setup": [
+   "CREATE (:Person {name: \"Alice\"})",
+   "CREATE (:Person {name: \"Bob\"})",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 2}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w"
+  ],
+  "query": "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 3}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 3
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 3}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MERGE relationship pattern properties match correct parallel edge #4",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "without a match MERGE creates the whole pattern, new nodes too",
+  "setup": [
+   "CREATE (:Person {name: \"Alice\"})",
+   "CREATE (:Person {name: \"Bob\"})",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 1}]->(b)",
+   "MATCH (a), (b) WHERE id(a) = 1 AND id(b) = 2 CREATE (a)-[:REL {w: 2}]->(b)",
+   "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 2}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w",
+   "MERGE (a:Person {name: \"Alice\"})-[r:REL {w: 3}]->(b:Person {name: \"Bob\"}) RETURN id(r), r.w"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 3}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: standalone MERGE relationship creates graph once",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "stats": {
+    "edgesCreated": 1,
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: standalone MERGE relationship creates graph once #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)"
+  ],
+  "query": "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: standalone MERGE relationship creates graph once #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)",
+   "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: standalone MERGE relationship creates graph once #4",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)",
+   "MERGE (a:Person {name: \"Alice\"})-[r:KNOWS]->(b:Person {name: \"Bob\"}) RETURN id(a), id(b), id(r)"
+  ],
+  "query": "MATCH (:Person)-[r:KNOWS]->(:Person) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[KNOWS {}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: MATCH + SET + RETURN in sequence",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Counter {name: \"hits\", value: 0})",
+   "MATCH (n:Counter {name: \"hits\"}) SET n.value = 1",
+   "MATCH (n:Counter {name: \"hits\"}) SET n.value = 2",
+   "MATCH (n:Counter {name: \"hits\"}) SET n.value = 3"
+  ],
+  "query": "MATCH (n:Counter {name: \"hits\"}) RETURN n.value",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Counter {name: \"hits\", value: 3})"
+   ]
+  }
+ },
+ {
+  "name": "query: create and query graph cycle",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Node {id: 1})",
+   "CREATE (b:Node {id: 2})",
+   "CREATE (c:Node {id: 3})",
+   "MATCH (a:Node {id: 1}), (b:Node {id: 2}) CREATE (a)-[:NEXT]->(b)",
+   "MATCH (b:Node {id: 2}), (c:Node {id: 3}) CREATE (b)-[:NEXT]->(c)",
+   "MATCH (c:Node {id: 3}), (a:Node {id: 1}) CREATE (c)-[:NEXT]->(a)"
+  ],
+  "query": "MATCH (a:Node)-[:NEXT]->(b:Node) RETURN count(a)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Node {id: 1})",
+    "(Node {id: 1})-[NEXT {}]->(Node {id: 2})",
+    "(Node {id: 2})",
+    "(Node {id: 2})-[NEXT {}]->(Node {id: 3})",
+    "(Node {id: 3})",
+    "(Node {id: 3})-[NEXT {}]->(Node {id: 1})"
+   ]
+  }
+ },
+ {
+  "name": "query: full lifecycle - create, read, update, delete #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Task {title: \"Write tests\", status: \"todo\"})",
+   "MATCH (n:Task {title: \"Write tests\"}) SET n.status = \"done\""
+  ],
+  "query": "MATCH (n:Task {title: \"Write tests\"}) RETURN n.status",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "done"
+     }
+    ]
+   ],
+   "ordered": false,
+   "graph": [
+    "(Task {status: \"done\", title: \"Write tests\"})"
+   ]
+  }
+ },
+ {
+  "name": "query: full lifecycle - create, read, update, delete #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Task {title: \"Write tests\", status: \"todo\"})",
+   "MATCH (n:Task {title: \"Write tests\"}) SET n.status = \"done\"",
+   "MATCH (n:Task {title: \"Write tests\"}) DELETE n"
+  ],
+  "query": "MATCH (n:Task) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: DELETE on empty result set is no-op",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n:NonExistent) DELETE n",
+  "expect": {
+   "rows": [],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: SET on empty result set is no-op",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n:NonExistent) SET n.x = 1",
+  "expect": {
+   "rows": [],
+   "ordered": false
+  }
+ },
+ {
+  "name": "TestConformanceQueryMutationAtomicityAndParallelEdgeTargeting",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: 'Alice', temp: 'remove'}), (b:Person {name: 'Bob'}), (a)-[:REL {w: 1}]->(b), (a)-[:REL {w: 2}]->(b)"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:BAD {owner: a}]->(b)",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(Person {name: \"Alice\", temp: \"remove\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "TestConformanceQueryMutationAtomicityAndParallelEdgeTargeting #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: 'Alice', temp: 'remove'}), (b:Person {name: 'Bob'}), (a)-[:REL {w: 1}]->(b), (a)-[:REL {w: 2}]->(b)",
+   "MATCH (a:Person {name: \"Alice\"}), (b:Person {name: \"Bob\"}) CREATE (a)-[:BAD {owner: a}]->(b)"
+  ],
+  "setupErrors": [
+   1
+  ],
+  "query": "MATCH (:Person)-[r:BAD]->(:Person) RETURN count(r) AS count",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "count"
+   ],
+   "graph": [
+    "(Person {name: \"Alice\", temp: \"remove\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "TestConformanceQueryMutationAtomicityAndParallelEdgeTargeting #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: 'Alice', temp: 'remove'}), (b:Person {name: 'Bob'}), (a)-[:REL {w: 1}]->(b), (a)-[:REL {w: 2}]->(b)"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) WHERE r.w = 1 SET r.tag = \"selected\"",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\", temp: \"remove\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {tag: \"selected\", w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\", temp: \"remove\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "TestConformanceQueryMutationAtomicityAndParallelEdgeTargeting #4",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: 'Alice', temp: 'remove'}), (b:Person {name: 'Bob'}), (a)-[:REL {w: 1}]->(b), (a)-[:REL {w: 2}]->(b)",
+   "MATCH (a)-[r:REL]->(b) WHERE r.w = 1 SET r.tag = \"selected\""
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) SET n.temp = null",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "stats": {
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(Person {name: \"Alice\"})",
+    "(Person {name: \"Alice\"})-[REL {tag: \"selected\", w: 1}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Alice\"})-[REL {w: 2}]->(Person {name: \"Bob\"})",
+    "(Person {name: \"Bob\"})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: CREATE writes no null property",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "a null in the map of CREATE writes nothing (SPEC §5.2)",
+  "setup": [],
+  "query": "CREATE (n:N {a: 1, b: null}) RETURN properties(n) AS p",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {
+       "a": {
+        "type": "Int",
+        "value": 1
+       }
+      }
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "p"
+   ],
+   "stats": {
+    "labelsAdded": 1,
+    "nodesCreated": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(N {a: 1})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: CREATE of a bound variable with labels is refused",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference ignores the labels",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) CREATE (a:X)",
+  "expect": {
+   "error": "QUERY_SEMANTIC",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: CREATE refuses an entity inside a list",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference turns the node into an Int",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) CREATE (:X {l: [1, a]})",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: CREATE of a relationship from a null node",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "OPTIONAL MATCH (n:Nothing) MATCH (q:Q) CREATE (n)-[:R]->(q)",
+  "expect": {
+   "error": "TYPE_MISMATCH",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET to null removes a property",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) SET a.k = null RETURN properties(a) AS p",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {}
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "p"
+   ],
+   "stats": {
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET of a map replaces every property and drops nulls",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference stores the null",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) SET a = {x: 1, k: null} RETURN properties(a) AS p",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {
+       "x": {
+        "type": "Int",
+        "value": 1
+       }
+      }
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "p"
+   ],
+   "stats": {
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {x: 1})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET += merges and removes the null keys",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference stores the null",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) SET a += {x: 1, k: null} RETURN properties(a) AS p",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {
+       "x": {
+        "type": "Int",
+        "value": 1
+       }
+      }
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "p"
+   ],
+   "stats": {
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {x: 1})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET on a null variable does nothing",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference fails",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "OPTIONAL MATCH (n:Nothing) SET n.k = 1, n:L RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ],
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DELETE of a null variable does nothing",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference fails",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "OPTIONAL MATCH (n:Nothing) DELETE n RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ],
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DELETE of a node with relationships fails and changes nothing",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference leaves dangling relationships",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:P {k: 1}) DELETE n",
+  "expect": {
+   "error": "INVALID_ARGUMENT",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DELETE of the relationships and their node in one clause",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:P {k: 1})-[r]-() DELETE r, n RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ],
+   "stats": {
+    "edgesDeleted": 2,
+    "nodesDeleted": 1
+   },
+   "graph": [
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DETACH DELETE removes the relationships",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:P {k: 1}) DETACH DELETE n",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "columns": null,
+   "stats": {
+    "edgesDeleted": 2,
+    "nodesDeleted": 1
+   },
+   "graph": [
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DELETE twice in one query",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:Q) DELETE n WITH n DELETE n",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "columns": null,
+   "stats": {
+    "nodesDeleted": 1
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET on an entity deleted earlier is NOT_FOUND",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:Q) DELETE n SET n.k = 1",
+  "expect": {
+   "error": "NOT_FOUND",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a deleted entity cannot be returned",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:Q) DELETE n RETURN n",
+  "expect": {
+   "error": "NOT_FOUND",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE matches every label and property, Int and Float alike",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference matches by the first label and exact scalars",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MERGE (n:P {k: 1.0}) RETURN n.k AS k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "k"
+   ],
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE creates one node for equal rows",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [],
+  "query": "UNWIND [1, 1, 2] AS k MERGE (n:K {k: k}) RETURN k, n.k AS nk",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "k",
+    "nk"
+   ],
+   "stats": {
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(K {k: 1})",
+    "(K {k: 2})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE yields one row per match",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference keeps the first match",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})",
+   "CREATE (:Q {k: 3})"
+  ],
+  "query": "MERGE (n:Q {k: 3}) ON MATCH SET n.seen = true RETURN n.seen AS s",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Bool",
+      "value": true
+     }
+    ],
+    [
+     {
+      "type": "Bool",
+      "value": true
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "s"
+   ],
+   "stats": {
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3, seen: true})",
+    "(Q {k: 3, seen: true})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE refuses a null literal",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [],
+  "query": "MERGE (n:N {k: null})",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "tacdb: MERGE refuses a computed null",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference creates a node with a null property",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) MERGE (n:N {k: a.missing})",
+  "expect": {
+   "error": "INVALID_ARGUMENT",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE of a bound variable with labels is refused",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference overwrites the slot",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:Q) MERGE (a:X)",
+  "expect": {
+   "error": "QUERY_SEMANTIC",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: ON CREATE and ON MATCH run in order",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference keeps the last action",
+  "setup": [],
+  "query": "MERGE (n:N {k: 1}) ON CREATE SET n.a = 1 ON CREATE SET n.a = n.a + 1, n:New RETURN n.a AS a, labels(n) AS l",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "String",
+        "value": "N"
+       },
+       {
+        "type": "String",
+        "value": "New"
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "a",
+    "l"
+   ],
+   "stats": {
+    "labelsAdded": 2,
+    "nodesCreated": 1,
+    "propertiesSet": 3
+   },
+   "graph": [
+    "(N:New {a: 2, k: 1})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: MERGE of a relationship between bound nodes",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (a:P {k: 1}), (q:Q) MERGE (a)-[r:T]->(q) ON CREATE SET r.new = true RETURN r.new AS n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Bool",
+      "value": true
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "n"
+   ],
+   "stats": {
+    "edgesCreated": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 1})-[T {new: true}]->(Q {k: 3})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a write without RETURN has counters and no rows",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-017",
+  "note": "the reference returns a column per variable",
+  "setup": [],
+  "query": "CREATE (a:A:B {x: 1})-[:R {y: 2}]->(b)",
+  "expect": {
+   "rows": [],
+   "ordered": false,
+   "columns": null,
+   "stats": {
+    "edgesCreated": 1,
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 2
+   },
+   "graph": [
+    "( {})",
+    "(A:B {x: 1})",
+    "(A:B {x: 1})-[R {y: 2}]->( {})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: LIMIT does not cut the effects of a write",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [],
+  "query": "UNWIND range(1, 4) AS i CREATE (n:N {i: i}) RETURN n.i AS i ORDER BY i LIMIT 1",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "i"
+   ],
+   "stats": {
+    "labelsAdded": 4,
+    "nodesCreated": 4,
+    "propertiesSet": 4
+   },
+   "graph": [
+    "(N {i: 1})",
+    "(N {i: 2})",
+    "(N {i: 3})",
+    "(N {i: 4})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a MATCH after CREATE sees every new node",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:P) CREATE (:P {k: n.k + 10}) WITH count(*) AS made MATCH (m:P) RETURN made, count(m) AS total",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 4
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "made",
+    "total"
+   ],
+   "stats": {
+    "labelsAdded": 2,
+    "nodesCreated": 2,
+    "propertiesSet": 2
+   },
+   "graph": [
+    "(P {k: 11})",
+    "(P {k: 12})",
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: REMOVE of labels and properties",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH (n:Q) SET n:X:Y REMOVE n:X, n.k RETURN labels(n) AS l, properties(n) AS p",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "String",
+        "value": "Q"
+       },
+       {
+        "type": "String",
+        "value": "Y"
+       }
+      ]
+     },
+     {
+      "type": "Map",
+      "value": {}
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "l",
+    "p"
+   ],
+   "stats": {
+    "labelsAdded": 2,
+    "labelsRemoved": 1,
+    "propertiesSet": 1
+   },
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q:Y {})"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: SET of a label on a relationship is refused",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {k: 1})-[:R {w: 1}]->(b:P {k: 2}), (a)-[:R {w: 2}]->(b), (c:Q {k: 3})"
+  ],
+  "query": "MATCH ()-[r]->() SET r:L",
+  "expect": {
+   "error": "QUERY_SEMANTIC",
+   "graph": [
+    "(P {k: 1})",
+    "(P {k: 1})-[R {w: 1}]->(P {k: 2})",
+    "(P {k: 1})-[R {w: 2}]->(P {k: 2})",
+    "(P {k: 2})",
+    "(Q {k: 3})"
+   ]
+  }
+ }
+]

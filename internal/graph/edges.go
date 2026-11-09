@@ -86,6 +86,7 @@ type EdgeCursor struct {
 	next   []byte      // where the current range resumes
 	buf    []EdgeRef
 	bound  uint64 // in a write transaction, the first edge ID handed out after the open; 0 otherwise
+	peer   uint64 // only the edges to this node; 0 for every peer
 	cur    EdgeRef
 	err    error
 	done   bool
@@ -95,6 +96,21 @@ type EdgeCursor struct {
 // or of any type when types is empty. Unknown types match nothing and are
 // not interned.
 func (g *Graph) Edges(ctx context.Context, r engine.Reader, node uint64, dir Direction, types []string) (*EdgeCursor, error) {
+	return g.edges(ctx, r, node, dir, types, 0)
+}
+
+// EdgesBetween returns a cursor over the edges between node and peer, in
+// dir as seen from node, with one of types or of any type. With types it
+// reads the adjacency prefix (node, direction, type, peer) directly
+// (SPEC §33.3); without, it walks the adjacency of node.
+func (g *Graph) EdgesBetween(ctx context.Context, r engine.Reader, node uint64, dir Direction, types []string, peer uint64) (*EdgeCursor, error) {
+	if peer == 0 {
+		return nil, errs.New(errs.CodeInvalidArgument, "tacdb.Edges", "peer 0")
+	}
+	return g.edges(ctx, r, node, dir, types, peer)
+}
+
+func (g *Graph) edges(ctx context.Context, r engine.Reader, node uint64, dir Direction, types []string, peer uint64) (*EdgeCursor, error) {
 	if dir > Both {
 		return nil, errs.Newf(errs.CodeInvalidArgument, "tacdb.Edges", "direction %d", dir)
 	}
@@ -112,7 +128,7 @@ func (g *Graph) Edges(ctx context.Context, r engine.Reader, node uint64, dir Dir
 		}
 	}
 	slices.Sort(ids)
-	c := &EdgeCursor{g: g, r: r, node: node, dir: dir}
+	c := &EdgeCursor{g: g, r: r, node: node, dir: dir, peer: peer}
 	if w, ok := r.(interface{ IDBound(kind int) uint64 }); ok {
 		c.bound = w.IDBound(engine.KindEdge)
 	}
@@ -126,6 +142,9 @@ func (g *Graph) Edges(ctx context.Context, r engine.Reader, node uint64, dir Dir
 		}
 		for _, t := range ids {
 			p := adjacencyTypePrefix(node, d, t)
+			if peer != 0 {
+				p = codec.AppendKeyUint64(p, peer)
+			}
 			c.ranges = append(c.ranges, [2][]byte{p, codec.PrefixEnd(p)})
 		}
 	}
@@ -219,6 +238,9 @@ func (c *EdgeCursor) fill(ctx context.Context) error {
 		}
 		if c.bound != 0 && a.edge >= c.bound {
 			continue // created after the cursor opened
+		}
+		if c.peer != 0 && a.peer != c.peer {
+			continue
 		}
 		t, err := name(ctx, c.g, c.r, a.typ)
 		if err != nil {

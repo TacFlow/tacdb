@@ -82,7 +82,7 @@ jobs:
           TACDB_GATES: rec11,gov01
         run: |
           rc=0
-          out=$(go test -count=1 -v -timeout 60m -run 'TestREC11|TestGOV01' ./internal/engine) || rc=$?
+          out=$(go test -count=1 -v -timeout 60m -run 'TestREC11|TestGOV01' ./internal/engine .) || rc=$?
           echo "$out"
           if [ "$rc" -ne 0 ]; then exit "$rc"; fi
           if grep -q -- '--- SKIP' <<<"$out"; then echo "a gate was skipped"; exit 1; fi
@@ -117,6 +117,7 @@ jobs:
           done
           go test ./internal/index -run '^$' -fuzz='^FuzzSortableKey$' -fuzztime=60s
           go test ./internal/query/parser -run '^$' -fuzz='^FuzzParser$' -fuzztime=60s
+          go test ./internal/query/eval -run '^$' -fuzz='^FuzzEval$' -fuzztime=60s
 
   deps:
     runs-on: ubuntu-latest

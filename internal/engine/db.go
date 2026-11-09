@@ -23,6 +23,7 @@ type DB struct {
 	name   string // the main file, "name.tacdb"
 	walDir string
 	opts   Options
+	gov    *govern.Governor // the governor the handle reserves memory from
 	uuid   [16]byte
 	sb     page.Superblock // the superblock in force; the checkpoint changes it
 	sbSlot page.ID         // the page that holds it, 0 or 1
@@ -99,6 +100,9 @@ type counters struct {
 	checkpoints, checkpointPages, scrubbed, segmentsRemoved, expired, evicted, walLimits atomic.Int64
 }
 
+// Governor returns the governor the handle reserves memory from.
+func (db *DB) Governor() *govern.Governor { return db.gov }
+
 // Stats returns the counters.
 func (db *DB) Stats() Stats {
 	s := &db.stats
@@ -123,7 +127,7 @@ func Open(ctx context.Context, fs vfs.FS, name string, opts Options) (*DB, error
 	if gov == nil {
 		gov = govern.Default()
 	}
-	db := &DB{fs: fs, name: name, walDir: name + "-wal", opts: opts, segs: map[uint64]vfs.File{},
+	db := &DB{fs: fs, name: name, walDir: name + "-wal", opts: opts, gov: gov, segs: map[uint64]vfs.File{},
 		tokens: map[[16]byte]token{}, queueFree: make(chan struct{}), durableCh: make(chan struct{})}
 	mode := vfs.LockExclusive
 	if opts.ReadOnly {

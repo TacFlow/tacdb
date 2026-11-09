@@ -6,8 +6,14 @@ import (
 	"github.com/TacFlow/tacdb/internal/catalog"
 	"github.com/TacFlow/tacdb/internal/engine"
 	"github.com/TacFlow/tacdb/internal/errs"
+	"github.com/TacFlow/tacdb/internal/govern"
 	"github.com/TacFlow/tacdb/internal/graph"
 	"github.com/TacFlow/tacdb/internal/index"
+	"github.com/TacFlow/tacdb/internal/query/budget"
+	"github.com/TacFlow/tacdb/internal/query/exec"
+	"github.com/TacFlow/tacdb/internal/query/parser"
+	"github.com/TacFlow/tacdb/internal/query/plan"
+	"github.com/TacFlow/tacdb/internal/query/sema"
 	"github.com/TacFlow/tacdb/value"
 )
 
@@ -94,9 +100,29 @@ type Options struct {
 	// takes more than half of MaxTxBytes.
 	IndexBuildBatchBytes int64
 	// ValueLimits bound each property value: depth, encoded bytes,
-	// elements, map key bytes and vector dimensions.
+	// elements, map key bytes and vector dimensions. Queries apply them to
+	// the values they build too.
 	ValueLimits value.Limits
+
+	// Limits of queries (SPEC §15.4).
+	MaxQueryBytes    int    // source text
+	MaxQueryDepth    int    // nesting of expressions, patterns, lists and maps
+	MaxBindings      int    // variables in scope at once, up to 4096
+	MaxParams        int    // distinct parameters of a query
+	MaxHops          int    // a variable-length relationship
+	MaxExpansions    int64  // edges read by the variable-length relationships of a query
+	QueryMemoryBytes int64  // memory of one execution, from the execution category of the governor
+	QueryWorkUnits   uint64 // rows produced by operators, entities scanned and edges read
+	// ResultMemoryBytes bounds the rows Exec materializes, also charged to
+	// the execution category of the governor.
+	ResultMemoryBytes int64
+
+	governor *govern.Governor // tests: a governor of their own
 }
+
+// DefaultResultMemoryBytes is the default of ResultMemoryBytes (SPEC
+// §24.1).
+const DefaultResultMemoryBytes = 64 << 20
 
 // DefaultOptions returns the defaults of SPEC §24.1, with Create set.
 func DefaultOptions() Options {
@@ -134,6 +160,15 @@ func DefaultOptions() Options {
 		IndexKeyPrefixBytes:       index.DefaultPrefixBytes,
 		IndexBuildBatchBytes:      DefaultIndexBuildBatchBytes,
 		ValueLimits:               value.DefaultLimits(),
+		MaxQueryBytes:             parser.DefaultLimits().MaxQueryBytes,
+		MaxQueryDepth:             parser.DefaultLimits().MaxDepth,
+		MaxBindings:               sema.DefaultMaxBindings,
+		MaxParams:                 sema.DefaultMaxParams,
+		MaxHops:                   plan.DefaultMaxHops,
+		MaxExpansions:             exec.DefaultMaxExpansions,
+		QueryMemoryBytes:          budget.DefaultMemoryBytes,
+		QueryWorkUnits:            budget.DefaultWorkUnits,
+		ResultMemoryBytes:         DefaultResultMemoryBytes,
 	}
 }
 
@@ -152,6 +187,7 @@ func (o Options) engine() engine.Options {
 	e.MaxReadTxAge, e.SnapshotPressurePolicy = o.MaxReadTxAge, o.SnapshotPressurePolicy
 	e.WALPinnedSoftBytes, e.MinSnapshotAgeForEviction = o.WALPinnedSoftBytes, o.MinSnapshotAgeForEviction
 	e.OnEvent, e.CacheBytes = o.OnEvent, o.CacheBytes
+	e.Governor = o.governor
 	return e
 }
 
@@ -171,6 +207,24 @@ func (o Options) check() error {
 		return bad("IndexKeyPrefixBytes")
 	case o.IndexBuildBatchBytes <= 0:
 		return bad("IndexBuildBatchBytes")
+	case o.MaxQueryBytes <= 0:
+		return bad("MaxQueryBytes")
+	case o.MaxQueryDepth <= 0:
+		return bad("MaxQueryDepth")
+	case o.MaxBindings <= 0 || o.MaxBindings > sema.MaxMaxBindings:
+		return bad("MaxBindings")
+	case o.MaxParams <= 0:
+		return bad("MaxParams")
+	case o.MaxHops <= 0:
+		return bad("MaxHops")
+	case o.MaxExpansions <= 0:
+		return bad("MaxExpansions")
+	case o.QueryMemoryBytes <= 0:
+		return bad("QueryMemoryBytes")
+	case o.QueryWorkUnits == 0:
+		return bad("QueryWorkUnits")
+	case o.ResultMemoryBytes <= 0:
+		return bad("ResultMemoryBytes")
 	}
 	return o.ValueLimits.Check()
 }

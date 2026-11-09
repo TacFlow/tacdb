@@ -1,0 +1,3339 @@
+{
+ "about": "Functions of tacdb-cypher/1 (SPEC §15.1): the table of names, arities and kinds, scalar cases and aggregate cases. Scalar functions give null for a null argument, except coalesce; aggregates ignore null, except count(*).",
+ "functions": [
+  {
+   "name": "id",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "coalesce",
+   "min": 0,
+   "max": -1,
+   "aggregate": false
+  },
+  {
+   "name": "abs",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "size",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "toInteger",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "toFloat",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "toString",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "toLower",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "toUpper",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "trim",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "substring",
+   "min": 2,
+   "max": 3,
+   "aggregate": false
+  },
+  {
+   "name": "replace",
+   "min": 3,
+   "max": 3,
+   "aggregate": false
+  },
+  {
+   "name": "split",
+   "min": 2,
+   "max": 2,
+   "aggregate": false
+  },
+  {
+   "name": "head",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "tail",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "last",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "range",
+   "min": 2,
+   "max": 3,
+   "aggregate": false
+  },
+  {
+   "name": "type",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "labels",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "properties",
+   "min": 1,
+   "max": 1,
+   "aggregate": false
+  },
+  {
+   "name": "count",
+   "min": 0,
+   "max": 1,
+   "aggregate": true
+  },
+  {
+   "name": "sum",
+   "min": 1,
+   "max": 1,
+   "aggregate": true
+  },
+  {
+   "name": "avg",
+   "min": 1,
+   "max": 1,
+   "aggregate": true
+  },
+  {
+   "name": "min",
+   "min": 1,
+   "max": 1,
+   "aggregate": true
+  },
+  {
+   "name": "max",
+   "min": 1,
+   "max": 1,
+   "aggregate": true
+  },
+  {
+   "name": "collect",
+   "min": 1,
+   "max": 1,
+   "aggregate": true
+  }
+ ],
+ "graph": {
+  "nodes": [
+   {
+    "id": 1,
+    "labels": [
+     "B",
+     "A"
+    ],
+    "properties": {
+     "name": {
+      "type": "String",
+      "value": "x"
+     },
+     "age": {
+      "type": "Int",
+      "value": 30
+     }
+    }
+   },
+   {
+    "id": 2,
+    "labels": [],
+    "properties": {}
+   }
+  ],
+  "edges": [
+   {
+    "id": 7,
+    "type": "KNOWS",
+    "properties": {
+     "since": {
+      "type": "Int",
+      "value": 2024
+     }
+    }
+   }
+  ]
+ },
+ "cases": [
+  {
+   "expr": "id(n)",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   }
+  },
+  {
+   "expr": "id(r)",
+   "result": {
+    "type": "Int",
+    "value": 7
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "id(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "null in, null out; the reference gives a type error"
+  },
+  {
+   "expr": "id(1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "id(n, n)",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   },
+   "note": "arity is checked before execution"
+  },
+  {
+   "expr": "id()",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "ID(n)",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   },
+   "note": "names ignore ASCII case"
+  },
+  {
+   "expr": "n.name",
+   "result": {
+    "type": "String",
+    "value": "x"
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   }
+  },
+  {
+   "expr": "n.missing",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   }
+  },
+  {
+   "expr": "r.since",
+   "result": {
+    "type": "Int",
+    "value": 2024
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "[n, r] = [n, r]",
+   "result": {
+    "type": "Bool",
+    "value": true
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    },
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "n = r",
+   "result": {
+    "type": "Bool",
+    "value": false
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    },
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "n = 1",
+   "result": {
+    "type": "Bool",
+    "value": false
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   }
+  },
+  {
+   "expr": "coalesce()",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "coalesce(null, null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "coalesce(null, 1, 'x')",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "coalesce(1, toLower(1))",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "parity",
+   "source": "reference",
+   "note": "later arguments are not evaluated"
+  },
+  {
+   "expr": "coalesce(null, 1 / 0)",
+   "error": "INVALID_ARGUMENT",
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "coalesce($x, 1)",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-011",
+   "params": {
+    "x": {
+     "type": "Null"
+    }
+   }
+  },
+  {
+   "expr": "abs(-5)",
+   "result": {
+    "type": "Int",
+    "value": 5
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "abs(-2.5)",
+   "result": {
+    "type": "Float",
+    "value": "2.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "abs(-0.0)",
+   "result": {
+    "type": "Float",
+    "value": "0"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "abs(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "abs($s)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference",
+   "params": {
+    "s": {
+     "type": "String",
+     "value": "1"
+    }
+   }
+  },
+  {
+   "expr": "abs(-9223372036854775808)",
+   "error": "INVALID_ARGUMENT",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference overflows"
+  },
+  {
+   "expr": "abs(1, 2)",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "size('abc')",
+   "result": {
+    "type": "Int",
+    "value": 3
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "size('é')",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "code points; the reference counts bytes"
+  },
+  {
+   "expr": "size([1, 2, 3])",
+   "result": {
+    "type": "Int",
+    "value": 3
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "size([])",
+   "result": {
+    "type": "Int",
+    "value": 0
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "size(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "size({a: 1})",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "size(5)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "size(p)",
+   "result": {
+    "type": "Int",
+    "value": 2
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "p": {
+     "type": "Path",
+     "nodes": [
+      1,
+      2,
+      1
+     ],
+     "edges": [
+      7,
+      7
+     ]
+    }
+   }
+  },
+  {
+   "expr": "toInteger('12')",
+   "result": {
+    "type": "Int",
+    "value": 12
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('-12')",
+   "result": {
+    "type": "Int",
+    "value": -12
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('+12')",
+   "result": {
+    "type": "Int",
+    "value": 12
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('007')",
+   "result": {
+    "type": "Int",
+    "value": 7
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('1_000')",
+   "result": {
+    "type": "Int",
+    "value": 1000
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('1__0')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('_1')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('12.7')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(' 12')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('12 ')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('1e3')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('0x1F')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('9223372036854775807')",
+   "result": {
+    "type": "Int",
+    "value": 9223372036854775807
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('9223372036854775808')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger('-9223372036854775808')",
+   "result": {
+    "type": "Int",
+    "value": -9223372036854775808
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(12.7)",
+   "result": {
+    "type": "Int",
+    "value": 12
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(-12.7)",
+   "result": {
+    "type": "Int",
+    "value": -12
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(7)",
+   "result": {
+    "type": "Int",
+    "value": 7
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(true)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger([1])",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toInteger(toFloat('nan'))",
+   "error": "INVALID_ARGUMENT",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference panics"
+  },
+  {
+   "expr": "toInteger(1e19)",
+   "error": "INVALID_ARGUMENT",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "toInteger(-9223372036854775808.0)",
+   "result": {
+    "type": "Int",
+    "value": -9223372036854775808
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('1.5')",
+   "result": {
+    "type": "Float",
+    "value": "1.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('1e3')",
+   "result": {
+    "type": "Float",
+    "value": "1000"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('12')",
+   "result": {
+    "type": "Float",
+    "value": "12"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('.5')",
+   "result": {
+    "type": "Float",
+    "value": "0.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('inf')",
+   "result": {
+    "type": "Float",
+    "value": "+Inf"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('-Infinity')",
+   "result": {
+    "type": "Float",
+    "value": "-Inf"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('NaN')",
+   "result": {
+    "type": "Float",
+    "value": "NaN"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('1e400')",
+   "result": {
+    "type": "Float",
+    "value": "+Inf"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('0x1p3')",
+   "result": {
+    "type": "Float",
+    "value": "8"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('1_000.5')",
+   "result": {
+    "type": "Float",
+    "value": "1000.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat(' 1.5')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('abc')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat('')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat(3)",
+   "result": {
+    "type": "Float",
+    "value": "3"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toFloat(true)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(42)",
+   "result": {
+    "type": "String",
+    "value": "42"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(-7)",
+   "result": {
+    "type": "String",
+    "value": "-7"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(1.0)",
+   "result": {
+    "type": "String",
+    "value": "1"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(1.5)",
+   "result": {
+    "type": "String",
+    "value": "1.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(0.1)",
+   "result": {
+    "type": "String",
+    "value": "0.1"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(1e21)",
+   "result": {
+    "type": "String",
+    "value": "1000000000000000000000"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(0.0000001)",
+   "result": {
+    "type": "String",
+    "value": "0.0000001"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(-0.0)",
+   "result": {
+    "type": "String",
+    "value": "-0"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(toFloat('nan'))",
+   "result": {
+    "type": "String",
+    "value": "nan"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(toFloat('inf'))",
+   "result": {
+    "type": "String",
+    "value": "inf"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(toFloat('-inf'))",
+   "result": {
+    "type": "String",
+    "value": "-inf"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(true)",
+   "result": {
+    "type": "String",
+    "value": "true"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference gives the string 'null'"
+  },
+  {
+   "expr": "toString('x')",
+   "result": {
+    "type": "String",
+    "value": "x"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString([1])",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toString({a: 1})",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toLower('HeLLo')",
+   "result": {
+    "type": "String",
+    "value": "hello"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toLower('ÉA')",
+   "result": {
+    "type": "String",
+    "value": "Éa"
+   },
+   "kind": "parity",
+   "source": "reference",
+   "note": "ASCII letters only"
+  },
+  {
+   "expr": "toLower(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toLower(1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tolower('A')",
+   "result": {
+    "type": "String",
+    "value": "a"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "toUpper('abc')",
+   "result": {
+    "type": "String",
+    "value": "ABC"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toUpper('éa')",
+   "result": {
+    "type": "String",
+    "value": "éA"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toUpper(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "toUpper(true)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "TOUPPER('a')",
+   "result": {
+    "type": "String",
+    "value": "A"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "trim('  a b \\t\\n')",
+   "result": {
+    "type": "String",
+    "value": "a b"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "trim('\\u000Ba')",
+   "result": {
+    "type": "String",
+    "value": "\u000ba"
+   },
+   "kind": "parity",
+   "source": "reference",
+   "note": "only space, tab, line feed and carriage return"
+  },
+  {
+   "expr": "trim(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "trim(1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 1)",
+   "result": {
+    "type": "String",
+    "value": "ello"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 1, 3)",
+   "result": {
+    "type": "String",
+    "value": "ell"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 0, 0)",
+   "result": {
+    "type": "String",
+    "value": ""
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', -2)",
+   "result": {
+    "type": "String",
+    "value": "hello"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 10)",
+   "result": {
+    "type": "String",
+    "value": ""
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 2, 100)",
+   "result": {
+    "type": "String",
+    "value": "llo"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 1, -1)",
+   "result": {
+    "type": "String",
+    "value": ""
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 1.9, 2)",
+   "result": {
+    "type": "String",
+    "value": "el"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('héllo', 1, 2)",
+   "result": {
+    "type": "String",
+    "value": "él"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "code points; the reference counts bytes"
+  },
+  {
+   "expr": "substring(null, 1)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring(null, 'x')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "substring('hello', '1')",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', 1, null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "substring(123, 1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello', toFloat('nan'))",
+   "error": "INVALID_ARGUMENT",
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "substring('hello')",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "replace('banana', 'an', 'AN')",
+   "result": {
+    "type": "String",
+    "value": "bANANa"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace('aaa', 'aa', 'b')",
+   "result": {
+    "type": "String",
+    "value": "ba"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace('abc', '', 'x')",
+   "result": {
+    "type": "String",
+    "value": "abc"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace(null, 'a', 'b')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace(null, null, null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace('abc', null, 'x')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "replace('abc', 'a', null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "replace('abc', 1, 'x')",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "replace('abc', 'a')",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "split('a,b,,c,', ',')",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": "a"
+     },
+     {
+      "type": "String",
+      "value": "b"
+     },
+     {
+      "type": "String",
+      "value": ""
+     },
+     {
+      "type": "String",
+      "value": "c"
+     },
+     {
+      "type": "String",
+      "value": ""
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "split('', ',')",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": ""
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "split('a::b', '::')",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": "a"
+     },
+     {
+      "type": "String",
+      "value": "b"
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "split(null, ',')",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "split('a', null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "split('a', 1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "split('aé', '')",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": "a"
+     },
+     {
+      "type": "String",
+      "value": "é"
+     }
+    ]
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference fails an assertion"
+  },
+  {
+   "expr": "split('', '')",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "head([1, 2, 3])",
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "head([])",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "head(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "head('abc')",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tail([1, 2, 3])",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tail([1])",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tail([])",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tail(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "tail(1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "last([1, 2, 3])",
+   "result": {
+    "type": "Int",
+    "value": 3
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "last([])",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "last(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "last('abc')",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1, 5)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Int",
+      "value": 4
+     },
+     {
+      "type": "Int",
+      "value": 5
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(0, 10, 3)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 0
+     },
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Int",
+      "value": 6
+     },
+     {
+      "type": "Int",
+      "value": 9
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(5, 1, -2)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 5
+     },
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(5, 1)",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1, 5, -1)",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(3, 3)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1.9, 3.7)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1, 5, 0)",
+   "error": "INVALID_ARGUMENT",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1, 5, 0.5)",
+   "error": "INVALID_ARGUMENT",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(null, 5)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "range('1', 5)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "range(1)",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012"
+  },
+  {
+   "expr": "range(0, 9223372036854775807)",
+   "error": "RESOURCE_LIMIT",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference overflows and allocates without bound"
+  },
+  {
+   "expr": "range(9223372036854775806, 9223372036854775807)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 9223372036854775806
+     },
+     {
+      "type": "Int",
+      "value": 9223372036854775807
+     }
+    ]
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "range(-9223372036854775808, 9223372036854775807, 9223372036854775807)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": -9223372036854775808
+     },
+     {
+      "type": "Int",
+      "value": -1
+     },
+     {
+      "type": "Int",
+      "value": 9223372036854775806
+     }
+    ]
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "range(9223372036854775807, -9223372036854775808, -9223372036854775808)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 9223372036854775807
+     },
+     {
+      "type": "Int",
+      "value": -1
+     }
+    ]
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "expr": "type(r)",
+   "result": {
+    "type": "String",
+    "value": "KNOWS"
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "type(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "type(n)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   }
+  },
+  {
+   "expr": "type('KNOWS')",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "labels(n)",
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": "B"
+     },
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   },
+   "note": "insertion order"
+  },
+  {
+   "expr": "labels(m)",
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "m": {
+     "type": "Node",
+     "id": 2
+    }
+   }
+  },
+  {
+   "expr": "labels(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "labels(r)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference",
+   "vars": {
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "properties(n)",
+   "result": {
+    "type": "Map",
+    "value": {
+     "age": {
+      "type": "Int",
+      "value": 30
+     },
+     "name": {
+      "type": "String",
+      "value": "x"
+     }
+    }
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   },
+   "note": "sorted by key"
+  },
+  {
+   "expr": "properties(r)",
+   "result": {
+    "type": "Map",
+    "value": {
+     "since": {
+      "type": "Int",
+      "value": 2024
+     }
+    }
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "vars": {
+    "r": {
+     "type": "Edge",
+     "id": 7
+    }
+   }
+  },
+  {
+   "expr": "properties(null)",
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "properties({a: 1})",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "properties(1)",
+   "error": "TYPE_MISMATCH",
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "expr": "keys(n)",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "vars": {
+    "n": {
+     "type": "Node",
+     "id": 1
+    }
+   },
+   "note": "unknown functions fail before execution"
+  },
+  {
+   "expr": "nonexistentFn(1)",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference succeeds on zero rows"
+  },
+  {
+   "expr": "toUpper(DISTINCT 'a')",
+   "error": "QUERY_SEMANTIC",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-012",
+   "note": "the reference ignores DISTINCT"
+  }
+ ],
+ "aggregates": [
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 2
+    }
+   ],
+   "star": true,
+   "result": {
+    "type": "Int",
+    "value": 3
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 2
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 2
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 2
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 3
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 3
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "count",
+   "over": [],
+   "result": {
+    "type": "Int",
+    "value": 0
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Float",
+     "value": "1"
+    },
+    {
+     "type": "Null"
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "the codec of equality: 1 = 1.0"
+  },
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "Float",
+     "value": "0"
+    },
+    {
+     "type": "Float",
+     "value": "-0"
+    },
+    {
+     "type": "Float",
+     "value": "NaN"
+    },
+    {
+     "type": "Float",
+     "value": "NaN"
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "Int",
+    "value": 2
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "count",
+   "over": [
+    {
+     "type": "String",
+     "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax"
+    },
+    {
+     "type": "String",
+     "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay"
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "Int",
+    "value": 2
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 2
+    },
+    {
+     "type": "Int",
+     "value": 3
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 6
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "Int for Ints; the reference always gives Float"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 20
+    },
+    {
+     "type": "Int",
+     "value": 30
+    },
+    {
+     "type": "Int",
+     "value": 40
+    },
+    {
+     "type": "Int",
+     "value": 50
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 140
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "sum",
+   "over": [],
+   "result": {
+    "type": "Int",
+    "value": 0
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "SPEC §15.2: sum of nothing is 0"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Null"
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 0
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 10
+    },
+    {
+     "type": "Int",
+     "value": 20
+    },
+    {
+     "type": "Float",
+     "value": "5.5"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "35.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "String",
+     "value": "a"
+    },
+    {
+     "type": "Bool",
+     "value": true
+    }
+   ],
+   "error": "TYPE_MISMATCH",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "the reference skips what is not a number"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 2
+    },
+    {
+     "type": "Int",
+     "value": 2
+    },
+    {
+     "type": "Int",
+     "value": 3
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "Int",
+    "value": 5
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Float",
+     "value": "1"
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "Float",
+    "value": "1"
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "note": "a Float makes the result Float even when DISTINCT drops it"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 9223372036854775807
+    },
+    {
+     "type": "Int",
+     "value": 1
+    }
+   ],
+   "error": "INVALID_ARGUMENT",
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 9223372036854775807
+    },
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": -1
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 9223372036854775807
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "note": "exact, whatever the order"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "1e308"
+    },
+    {
+     "type": "Float",
+     "value": "1e308"
+    },
+    {
+     "type": "Float",
+     "value": "-1e308"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "1e+308"
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "note": "exact accumulation"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "1"
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "note": "exact accumulation, one rounding"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "1e16"
+    },
+    {
+     "type": "Float",
+     "value": "1"
+    },
+    {
+     "type": "Float",
+     "value": "-1e16"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "1"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "5e-324"
+    },
+    {
+     "type": "Float",
+     "value": "5e-324"
+    },
+    {
+     "type": "Float",
+     "value": "-5e-324"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "5e-324"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Int",
+     "value": 9223372036854775807
+    },
+    {
+     "type": "Float",
+     "value": "1"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "9223372036854775808"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "NaN"
+    },
+    {
+     "type": "Int",
+     "value": 1
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "NaN"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "+Inf"
+    },
+    {
+     "type": "Float",
+     "value": "-Inf"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "NaN"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "sum",
+   "over": [
+    {
+     "type": "Float",
+     "value": "+Inf"
+    },
+    {
+     "type": "Int",
+     "value": 1
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "+Inf"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Int",
+     "value": 20
+    },
+    {
+     "type": "Int",
+     "value": 30
+    },
+    {
+     "type": "Int",
+     "value": 40
+    },
+    {
+     "type": "Int",
+     "value": 50
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "35"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Int",
+     "value": 10
+    },
+    {
+     "type": "Null"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "10"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "the reference counts null in the divisor"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Null"
+    }
+   ],
+   "result": {
+    "type": "Null"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "avg",
+   "over": [],
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 2
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "1.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Int",
+     "value": 9223372036854775807
+    },
+    {
+     "type": "Int",
+     "value": 9223372036854775807
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "9223372036854775807"
+   },
+   "kind": "tacdb",
+   "source": "reference",
+   "note": "exact: no overflow"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    },
+    {
+     "type": "Float",
+     "value": "0.1"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "0.1"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "avg",
+   "over": [
+    {
+     "type": "String",
+     "value": "a"
+    }
+   ],
+   "error": "TYPE_MISMATCH",
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Int",
+     "value": 25
+    },
+    {
+     "type": "Int",
+     "value": 35
+    },
+    {
+     "type": "Int",
+     "value": 15
+    },
+    {
+     "type": "Int",
+     "value": 45
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 15
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [],
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 3
+    },
+    {
+     "type": "Float",
+     "value": "1.5"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "1.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Float",
+     "value": "1"
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Float",
+     "value": "1"
+    },
+    {
+     "type": "Int",
+     "value": 1
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "ties go to the identity order, not the first row"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "String",
+     "value": "b"
+    },
+    {
+     "type": "String",
+     "value": "a"
+    },
+    {
+     "type": "String",
+     "value": "c"
+    }
+   ],
+   "result": {
+    "type": "String",
+    "value": "a"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "String",
+     "value": "b"
+    },
+    {
+     "type": "Int",
+     "value": 1
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 1
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "the total order: numbers before strings"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Bool",
+     "value": true
+    },
+    {
+     "type": "Bool",
+     "value": false
+    }
+   ],
+   "result": {
+    "type": "Bool",
+    "value": false
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "Float",
+     "value": "0"
+    },
+    {
+     "type": "Float",
+     "value": "-0"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "0"
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "min",
+   "over": [
+    {
+     "type": "List",
+     "value": [
+      {
+       "type": "Int",
+       "value": 2
+      }
+     ]
+    },
+    {
+     "type": "List",
+     "value": [
+      {
+       "type": "Int",
+       "value": 1
+      },
+      {
+       "type": "Int",
+       "value": 5
+      }
+     ]
+    }
+   ],
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 5
+     }
+    ]
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "max",
+   "over": [
+    {
+     "type": "Int",
+     "value": 25
+    },
+    {
+     "type": "Int",
+     "value": 35
+    },
+    {
+     "type": "Int",
+     "value": 15
+    },
+    {
+     "type": "Int",
+     "value": 45
+    }
+   ],
+   "result": {
+    "type": "Int",
+    "value": 45
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "max",
+   "over": [
+    {
+     "type": "Int",
+     "value": 3
+    },
+    {
+     "type": "Float",
+     "value": "7.5"
+    },
+    {
+     "type": "Int",
+     "value": 5
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "7.5"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "max",
+   "over": [
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Null"
+    }
+   ],
+   "result": {
+    "type": "Null"
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "max",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Float",
+     "value": "NaN"
+    }
+   ],
+   "result": {
+    "type": "Float",
+    "value": "NaN"
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "NaN after every number; the reference panics"
+  },
+  {
+   "aggregate": "max",
+   "over": [
+    {
+     "type": "Node",
+     "id": 2
+    },
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Node",
+     "id": 1
+    }
+   ],
+   "result": {
+    "type": "Node",
+    "id": 2
+   },
+   "kind": "tacdb",
+   "source": "reference"
+  },
+  {
+   "aggregate": "collect",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 2
+    },
+    {
+     "type": "Int",
+     "value": 3
+    }
+   ],
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference",
+   "ordered": true
+  },
+  {
+   "aggregate": "collect",
+   "over": [
+    {
+     "type": "Int",
+     "value": 10
+    },
+    {
+     "type": "String",
+     "value": "hello"
+    },
+    {
+     "type": "Bool",
+     "value": true
+    },
+    {
+     "type": "Float",
+     "value": "2.5"
+    }
+   ],
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 10
+     },
+     {
+      "type": "String",
+      "value": "hello"
+     },
+     {
+      "type": "Bool",
+      "value": true
+     },
+     {
+      "type": "Float",
+      "value": "2.5"
+     }
+    ]
+   },
+   "kind": "parity",
+   "source": "reference",
+   "ordered": true
+  },
+  {
+   "aggregate": "collect",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 2
+    }
+   ],
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "collect skips null",
+   "ordered": true
+  },
+  {
+   "aggregate": "collect",
+   "over": [],
+   "result": {
+    "type": "List",
+    "value": []
+   },
+   "kind": "parity",
+   "source": "reference"
+  },
+  {
+   "aggregate": "collect",
+   "over": [
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Int",
+     "value": 1
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Null"
+    },
+    {
+     "type": "Int",
+     "value": 2
+    }
+   ],
+   "distinct": true,
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "ordered": true
+  },
+  {
+   "aggregate": "collect",
+   "over": [
+    {
+     "type": "Node",
+     "id": 5
+    },
+    {
+     "type": "Node",
+     "id": 9
+    }
+   ],
+   "result": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Node",
+      "id": 5
+     },
+     {
+      "type": "Node",
+      "id": 9
+     }
+    ]
+   },
+   "kind": "divergence",
+   "source": "reference",
+   "decision": "D-013",
+   "note": "entities stay entities",
+   "ordered": true
+  }
+ ]
+}

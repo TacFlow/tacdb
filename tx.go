@@ -24,6 +24,7 @@ type Tx struct {
 	busy    atomic.Bool
 	managed bool // owned by View or Update
 	closed  bool // a read transaction ended by Commit or Rollback
+	cursors map[*Rows]struct{}
 }
 
 // ctx is the context of graph operations, which take none (SPEC §6).
@@ -78,6 +79,9 @@ func (tx *Tx) Commit(ctx context.Context) (CommitReceipt, error) {
 	if tx.managed {
 		return CommitReceipt{}, errs.New(errs.CodeInvalidArgument, op, "the transaction belongs to View or Update")
 	}
+	if err := tx.openCursors(op); err != nil {
+		return CommitReceipt{}, err
+	}
 	if tx.w == nil {
 		if tx.closed {
 			return CommitReceipt{}, errs.New(errs.CodeTxClosed, op, "transaction closed")
@@ -92,6 +96,9 @@ func (tx *Tx) Commit(ctx context.Context) (CommitReceipt, error) {
 // commit commits the write transaction; after a change of the schema it
 // wakes the background builds and purges.
 func (tx *Tx) commit(ctx context.Context) (CommitReceipt, error) {
+	if err := tx.openCursors("tacdb.Commit"); err != nil {
+		return CommitReceipt{}, err
+	}
 	ddl := tx.w.State().SchemaEpoch != tx.w.Base().SchemaEpoch
 	rc, err := tx.w.Commit(ctx)
 	if err == nil && ddl {
@@ -111,6 +118,7 @@ func (tx *Tx) Rollback() error {
 	if tx.managed {
 		return errs.New(errs.CodeInvalidArgument, op, "the transaction belongs to View or Update")
 	}
+	tx.closeCursors(errs.CodeTxClosed)
 	if tx.w == nil {
 		tx.closed = true
 		return tx.r.Close()
@@ -136,6 +144,9 @@ func (tx *Tx) write(op string, fn func(s *engine.Stmt) error) error {
 	if tx.w == nil {
 		return errs.New(errs.CodeReadOnly, op, "a read transaction cannot write")
 	}
+	if err := tx.openCursors(op); err != nil {
+		return err
+	}
 	return tx.w.Statement(op, fn)
 }
 
@@ -150,13 +161,18 @@ func (tx *Tx) CreateNode(o CreateNodeOptions) (Node, error) {
 	if err != nil {
 		return Node{}, err
 	}
-	var labels []string
-	for _, l := range o.Labels {
-		if !slices.Contains(labels, l) {
-			labels = append(labels, l)
+	return Node{ID: NodeID(id), Labels: dedupLabels(o.Labels), Properties: copyProps(o.Properties)}, nil
+}
+
+// dedupLabels returns labels without repeats, in order.
+func dedupLabels(labels []string) []string {
+	var out []string
+	for _, l := range labels {
+		if !slices.Contains(out, l) {
+			out = append(out, l)
 		}
 	}
-	return Node{ID: NodeID(id), Labels: labels, Properties: copyProps(o.Properties)}, nil
+	return out
 }
 
 func copyProps(p map[string]value.Value) map[string]value.Value {
