@@ -117,6 +117,7 @@ jobs:
           done
           go test ./internal/index -run '^$' -fuzz='^FuzzSortableKey$' -fuzztime=60s
           go test ./internal/query/parser -run '^$' -fuzz='^FuzzParser$' -fuzztime=60s
+          go test ./internal/query/eval -run '^$' -fuzz='^FuzzEval$' -fuzztime=60s
 
   deps:
     runs-on: ubuntu-latest

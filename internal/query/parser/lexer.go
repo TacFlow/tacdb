@@ -84,18 +84,7 @@ func lexError(src string, span ast.Span, format string, args ...any) error {
 
 // locate converts a span into line and column, both 1-based; the column
 // counts code points.
-func locate(src string, span ast.Span) *errs.Location {
-	start := min(span.Start, len(src))
-	line, col := 1, 1
-	for _, r := range src[:start] {
-		if r == '\n' {
-			line, col = line+1, 1
-		} else {
-			col++
-		}
-	}
-	return &errs.Location{Start: span.Start, End: span.End, Line: line, Column: col}
-}
+func locate(src string, span ast.Span) *errs.Location { return ast.Locate(src, span) }
 
 // checkUTF8 rejects a source that is not valid UTF-8.
 func checkUTF8(src string) error {

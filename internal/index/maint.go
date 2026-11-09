@@ -8,6 +8,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/catalog"
 	"github.com/TacFlow/tacdb/internal/codec"
 	"github.com/TacFlow/tacdb/internal/engine"
+	"github.com/TacFlow/tacdb/internal/equal"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/value"
 )
@@ -176,7 +177,7 @@ func duplicate(ctx context.Context, s *engine.Stmt, ix *Index, entity uint64, v 
 				if err != nil {
 					return err
 				}
-				if !equal(w, v) {
+				if !equal.Equal(w, v) {
 					return nil
 				}
 			}

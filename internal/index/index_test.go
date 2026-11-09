@@ -14,6 +14,7 @@ import (
 	"github.com/TacFlow/tacdb/internal/catalog"
 	"github.com/TacFlow/tacdb/internal/codec"
 	"github.com/TacFlow/tacdb/internal/engine"
+	"github.com/TacFlow/tacdb/internal/equal"
 	"github.com/TacFlow/tacdb/internal/errs"
 	"github.com/TacFlow/tacdb/internal/govern"
 	"github.com/TacFlow/tacdb/internal/vfs"
@@ -183,40 +184,11 @@ func TestTruncation(t *testing.T) {
 	}
 }
 
-// The equality of uniqueness (SPEC §12.2).
-func TestEqualKey(t *testing.T) {
-	nan := math.NaN()
-	for _, c := range []struct {
-		a, b value.Value
-		eq   bool
-	}{
-		{value.Int(1), value.Float(1), true},
-		{value.Float(0), value.Float(math.Copysign(0, -1)), true},
-		{value.Int(0), value.Float(math.Copysign(0, -1)), true},
-		{value.Int(1<<53 + 1), value.Float(1 << 53), false},
-		{value.Int(math.MinInt64), value.Float(-(1 << 63)), true},
-		{value.Int(math.MaxInt64), value.Float(1 << 63), false},
-		{value.Float(0.5), value.Float(0.25), false},
-		{value.Int(-1), value.Int(1), false},
-		{value.Float(-2), value.Int(2), false},
-		{value.List(value.Int(1)), value.List(value.Float(1)), true},
-		{value.List(value.Float(nan)), value.List(value.Float(math.Float64frombits(0x7ff8000000000001))), true},
-		{value.List(value.Int(1)), value.Vector([]float32{1}), false},
-		{value.Vector([]float32{0.5}), value.Vector([]float32{0.5}), true},
-		{value.MapOf(map[string]value.Value{"a": value.Int(2)}), value.MapOf(map[string]value.Value{"a": value.Float(2)}), true},
-		{value.MapOf(map[string]value.Value{"a": value.Int(2)}), value.MapOf(map[string]value.Value{"b": value.Int(2)}), false},
-		{value.String("a"), value.Bytes([]byte("a")), false},
-		{value.Null(), value.Null(), true},
-		{value.List(), value.MapOf(nil), false},
-		{value.Float(math.Inf(1)), value.Float(math.Inf(-1)), false},
-	} {
-		if got := equal(c.a, c.b); got != c.eq {
-			t.Fatalf("equal(%v, %v) = %v", c.a, c.b, got)
-		}
-	}
+// Siblings meet only on exact values (SPEC §12.2).
+func TestSibling(t *testing.T) {
 	for _, v := range []value.Value{value.Int(1), value.Int(-7), value.Int(math.MinInt64), value.Float(3), value.Float(-2)} {
 		s, ok := sibling(v)
-		if !ok || !equal(s, v) || s.Kind() == v.Kind() {
+		if !ok || !equal.Equal(s, v) || s.Kind() == v.Kind() {
 			t.Fatalf("sibling of %v: %v %v", v, s, ok)
 		}
 	}
