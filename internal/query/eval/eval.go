@@ -60,6 +60,15 @@ type Scope interface {
 	Aggregate(call *ast.FuncCall) (slot int, ok bool)
 }
 
+// ExprScope is a Scope that also resolves whole subexpressions: an
+// expression it maps to a slot is read from that slot instead of being
+// evaluated, as an ORDER BY reads an item it repeats, or an aggregating
+// projection a grouping key.
+type ExprScope interface {
+	Scope
+	Expr(e ast.Expr) (slot int, ok bool)
+}
+
 // Expr is a compiled expression. It is immutable and safe for concurrent
 // use.
 type Expr struct {
@@ -183,6 +192,11 @@ func (c *compiler) exprs(list []ast.Expr) ([]node, error) {
 }
 
 func (c *compiler) expr(e ast.Expr) (node, error) {
+	if es, ok := c.scope.(ExprScope); ok {
+		if slot, ok := es.Expr(e); ok {
+			return func(f *frame) (qv.Value, error) { return f.row.Slot(slot), nil }, nil
+		}
+	}
 	switch e := e.(type) {
 	case *ast.Literal:
 		v := qv.FromValue(e.Value)

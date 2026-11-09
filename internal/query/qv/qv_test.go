@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"unsafe"
 
 	"github.com/TacFlow/tacdb/internal/equal"
 	"github.com/TacFlow/tacdb/internal/errs"
@@ -283,5 +284,12 @@ func TestTypes(t *testing.T) {
 	}
 	if TAny.String() != "Any" || (TInt|TNull).String() != "Null|Int" {
 		t.Fatalf("%s %s", TAny, TInt|TNull)
+	}
+}
+
+// The budget charges at least what a value takes in memory.
+func TestElementBytes(t *testing.T) {
+	if unsafe.Sizeof(Value{}) > ElementBytes || unsafe.Sizeof(Entry{}) > ElementBytes || ElementBytes < 64 {
+		t.Fatalf("a Value takes %d bytes and an Entry %d, above ElementBytes %d", unsafe.Sizeof(Value{}), unsafe.Sizeof(Entry{}), ElementBytes)
 	}
 }

@@ -44,9 +44,10 @@ func (k Kind) String() string {
 }
 
 // ElementBytes is what one value costs in a budget, besides the bytes of
-// its strings and vectors (SPEC §5.3 charges at least 64 bytes per
-// element).
-const ElementBytes = 64
+// its strings and vectors: at least the 64 bytes per element of SPEC §5.3,
+// and at least what a Value, or an Entry of a Map, takes in memory, so
+// that the budget does not count less than the heap holds.
+const ElementBytes = 96
 
 // Value is an immutable runtime value. The zero Value is Null.
 type Value struct {
