@@ -1,0 +1,3325 @@
+[
+ {
+  "name": "database: query with property filter",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {name: 'Alice', age: 30}), (:Person {name: 'Bob', age: 25}), (:Person {name: 'Charlie', age: 35})"
+  ],
+  "query": "MATCH (n:Person) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {
+       "age": {
+        "type": "Int",
+        "value": 30
+       },
+       "name": {
+        "type": "String",
+        "value": "Alice"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {
+       "age": {
+        "type": "Int",
+        "value": 25
+       },
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {
+       "age": {
+        "type": "Int",
+        "value": 35
+       },
+       "name": {
+        "type": "String",
+        "value": "Charlie"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: query with LIMIT",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item), (:Item)"
+  ],
+  "query": "MATCH (n:Item) RETURN n LIMIT 5",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: count aggregation",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person), (:Person), (:Person), (:Person), (:Person)"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 5
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: sum aggregation",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-013",
+  "note": "sum of Ints is an Int",
+  "setup": [
+   "CREATE (:Person {age: 20}), (:Person {age: 30}), (:Person {age: 40}), (:Person {age: 50})"
+  ],
+  "query": "MATCH (n:Person) RETURN sum(n.age)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 140
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: avg aggregation",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {age: 20}), (:Person {age: 30}), (:Person {age: 40}), (:Person {age: 50})"
+  ],
+  "query": "MATCH (n:Person) RETURN avg(n.age)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Float",
+      "value": "0x4041800000000000"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: min/max aggregation",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {age: 25}), (:Person {age: 35}), (:Person {age: 15}), (:Person {age: 45})"
+  ],
+  "query": "MATCH (n:Person) RETURN min(n.age)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 15
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: min/max aggregation #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {age: 25}), (:Person {age: 35}), (:Person {age: 15}), (:Person {age: 45})"
+  ],
+  "query": "MATCH (n:Person) RETURN max(n.age)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 45
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: count with empty result",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path 1 to 2 hops",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (s:Root), (a:Target), (b:Target), (c:Target), (s)-[:NEXT]->(a), (a)-[:NEXT]->(b), (b)-[:NEXT]->(c)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*1..2]->(t:Target)\nRETURN t",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path exact hops",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (s:Root), (a:Target), (b:Target), (c:Target), (s)-[:NEXT]->(a), (a)-[:NEXT]->(b), (b)-[:NEXT]->(c)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*2]->(t:Target)\nRETURN t",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path with branching",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (s:Root), (b:Target), (c:Target), (d:Target), (e:Target), (s)-[:NEXT]->(b), (s)-[:NEXT]->(c), (b)-[:NEXT]->(d), (c)-[:NEXT]->(e)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*1..2]->(t:Target)\nRETURN t",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path unbounded star",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (s:Root), (a:Target), (b:Target), (s)-[:NEXT]->(a), (a)-[:NEXT]->(b)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*]->(t:Target)\nRETURN t",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Target"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path supports exact zero hops",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (r:Root), (o:Root), (r)-[:NEXT]->(o)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*0..0]->(t:Root)\nRETURN count(t)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: variable-length path zero to one hops includes source and neighbor",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (r:Root:Target), (c:Target), (r)-[:NEXT]->(c)"
+  ],
+  "query": "MATCH (s:Root)-[:NEXT*0..1]->(t:Target)\nRETURN count(t)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: list property round-trip through query",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:ListNode {scores: [10, 20, 30]})"
+  ],
+  "query": "MATCH (n:ListNode) RETURN n.scores",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "Int",
+        "value": 10
+       },
+       {
+        "type": "Int",
+        "value": 20
+       },
+       {
+        "type": "Int",
+        "value": 30
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: map property round-trip through query",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:MapNode {address: {city: 'Portland', zip: 97201}})"
+  ],
+  "query": "MATCH (n:MapNode) RETURN n.address",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {
+       "city": {
+        "type": "String",
+        "value": "Portland"
+       },
+       "zip": {
+        "type": "Int",
+        "value": 97201
+       }
+      }
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: mixed-type list property through query",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:MixedNode {mixed: [42, 'hello', true, 2.718]})"
+  ],
+  "query": "MATCH (n:MixedNode) RETURN n.mixed",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "Int",
+        "value": 42
+       },
+       {
+        "type": "String",
+        "value": "hello"
+       },
+       {
+        "type": "Bool",
+        "value": true
+       },
+       {
+        "type": "Float",
+        "value": "0x4005be76c8b43958"
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: empty list property through query",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:EmptyListNode {tags: []})"
+  ],
+  "query": "MATCH (n:EmptyListNode) RETURN n.tags",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": []
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multiple complex properties on same node",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:ComplexNode {scores: [85, 92], name: 'Alice'})"
+  ],
+  "query": "MATCH (n:ComplexNode) RETURN n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multiple complex properties on same node #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:ComplexNode {scores: [85, 92], name: 'Alice'})"
+  ],
+  "query": "MATCH (n:ComplexNode) RETURN n.scores",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "Int",
+        "value": 85
+       },
+       {
+        "type": "Int",
+        "value": 92
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multi-label query filters nodes with all specified labels",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person:Employee {name: 'Alice'})",
+   "CREATE (:Person:Manager {name: 'Bob'})",
+   "CREATE (:Person:Employee:Senior {name: 'Charlie'})",
+   "CREATE (:Person {name: 'Dave'})"
+  ],
+  "query": "MATCH (n:Person:Employee) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person",
+       "Employee"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Alice"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person",
+       "Employee",
+       "Senior"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Charlie"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multi-label query filters nodes with all specified labels #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person:Employee {name: 'Alice'})",
+   "CREATE (:Person:Manager {name: 'Bob'})",
+   "CREATE (:Person:Employee:Senior {name: 'Charlie'})",
+   "CREATE (:Person {name: 'Dave'})"
+  ],
+  "query": "MATCH (n:Person:Manager) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person",
+       "Manager"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multi-label query filters nodes with all specified labels #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person:Employee {name: 'Alice'})",
+   "CREATE (:Person:Manager {name: 'Bob'})",
+   "CREATE (:Person:Employee:Senior {name: 'Charlie'})",
+   "CREATE (:Person {name: 'Dave'})"
+  ],
+  "query": "MATCH (n:Person) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person",
+       "Employee"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Alice"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person",
+       "Manager"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person",
+       "Employee",
+       "Senior"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Charlie"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Dave"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: multi-label query on target of edge",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person:Employee {name: 'Alice'}), (b:Person:Manager {name: 'Bob'}), (c:Person:Employee {name: 'Charlie'}), (a)-[:WORKS_WITH]->(b), (c)-[:WORKS_WITH]->(b), (a)-[:WORKS_WITH]->(c)"
+  ],
+  "query": "MATCH (a:Person)-[:WORKS_WITH]->(b:Person:Manager) RETURN b",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person",
+       "Manager"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person",
+       "Manager"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: three labels on node pattern",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person:Employee)",
+   "CREATE (:Person:Employee:Senior {name: 'Senior Employee'})",
+   "CREATE (:Person:Manager:Senior)"
+  ],
+  "query": "MATCH (n:Person:Employee:Senior) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person",
+       "Employee",
+       "Senior"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Senior Employee"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"A\"})-[:KNOWS]->(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "B"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"B\"})<-[:KNOWS]-(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"B\"})<-[r:KNOWS]-(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #4",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"B\"})<--(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #5",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"A\"})-[:KNOWS]-(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "B"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #6",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"B\"})-[:KNOWS]-(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: relationship patterns traverse in every direction #7",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:P {n: 'A'})-[:KNOWS]->(b:P {n: 'B'})"
+  ],
+  "query": "MATCH (x:P {n: \"B\"})<-[:KNOWS]-(y) RETURN y.n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "A"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "database: ORDER BY can reference a RETURN alias",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:P {n: 'Alice'})",
+   "CREATE (:P {n: 'Bob'})"
+  ],
+  "query": "MATCH (p:P) RETURN p.n AS who ORDER BY who",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "database: ORDER BY can reference a RETURN alias #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:P {n: 'Alice'})",
+   "CREATE (:P {n: 'Bob'})"
+  ],
+  "query": "MATCH (p:P) RETURN p.n AS who ORDER BY who DESC",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "database: ORDER BY can reference a RETURN alias #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:P {n: 'Alice'})",
+   "CREATE (:P {n: 'Bob'})"
+  ],
+  "query": "MATCH (p:P) RETURN p.n AS who ORDER BY nope",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "database: ordering by a column the projection does not produce is refused",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Author {name: 'x'})"
+  ],
+  "query": "MATCH (a:Author) RETURN a.name AS name, count(a) AS n ORDER BY missing DESC",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: CREATE node with label",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person)"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with properties",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name, n.age",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "Int",
+      "value": 30
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with float property",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Measurement {value: 3.14})"
+  ],
+  "query": "MATCH (n:Measurement) RETURN n.value",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Float",
+      "value": "0x40091eb851eb851f"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with boolean property",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Flag {active: true, deleted: false})"
+  ],
+  "query": "MATCH (n:Flag) RETURN n.active, n.deleted",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Bool",
+      "value": true
+     },
+     {
+      "type": "Bool",
+      "value": false
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with string containing special characters",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Text {content: \"hello world\"})"
+  ],
+  "query": "MATCH (n:Text) RETURN n.content",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "hello world"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE multiple nodes sequentially",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})",
+   "CREATE (n:Person {name: \"Carol\"})"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with multiple labels",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person:Employee {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE node with multiple labels #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person:Employee {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Employee) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE relationship between new nodes",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:KNOWS]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE relationship persists multiple inline properties",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 7, note: \"x\"}]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN r.w, r.note",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 7
+     },
+     {
+      "type": "String",
+      "value": "x"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE relationship persists multiple inline properties #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 7, note: \"x\"}]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (:Person)-[r:REL]->(:Person) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE relationship fails on non-property value and does not create edge #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (:Person)-[r]->(:Person) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH on unknown relationship type returns empty result",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[r:DOES_NOT_EXIST]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH variable-length relationship rejects edge variable",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "a variable-length relationship takes no variable: QUERY_UNSUPPORTED names the construction",
+  "setup": [],
+  "query": "MATCH (a)-[r:REL*1..2]->(b) RETURN r",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "query: MATCH variable-length relationship rejects inline property map",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "a variable-length relationship takes no properties: QUERY_UNSUPPORTED",
+  "setup": [],
+  "query": "MATCH (a)-[:REL*1..2 {w: 1}]->(b) RETURN b",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "query: MATCH variable-length relationship rejects invalid hop range",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (a)-[:REL*3..1]->(b) RETURN b",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: MATCH variable-length relationship rejects overflow hop count",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (a)-[:REL*4294967296]->(b) RETURN b",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "query: queryDetailed surfaces parse diagnostics with location",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n RETURN n",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "query: queryDetailed surfaces semantic diagnostics with code",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "QUERY_UNSUPPORTED names the construction",
+  "setup": [],
+  "query": "MATCH (a)-[r:REL*1..2]->(b) RETURN r",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "query: semicolon-terminated queries execute end-to-end",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"});"
+  ],
+  "query": "MATCH (a:Person)-[:REL]->(b:Person) RETURN a.name, b.name;",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH relationship type alternation is rejected",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "type alternation is accepted in MATCH",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL_A]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[:REL_A|REL_B]->(b) RETURN b",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {
+       "name": {
+        "type": "String",
+        "value": "Bob"
+       }
+      },
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH anonymous source node inline property map filters pattern",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"}), (x:Person {name: \"Eve\"})-[:REL]->(y:Person {name: \"Mallory\"})"
+  ],
+  "query": "MATCH (:Person {name: \"Alice\"})-[:REL]->(p:Person) RETURN p.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH anonymous target node inline property map filters pattern",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL]->(b:Person {name: \"Bob\"}), (c:Person {name: \"Carol\"})-[:REL]->(b), (d:Person {name: \"Dave\"})-[:REL]->(e:Person {name: \"Eve\"})"
+  ],
+  "query": "MATCH (p:Person)-[:REL]->(:Person {name: \"Bob\"}) RETURN p.name ORDER BY p.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "Carol"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: MATCH relationship inline property map filters anonymous edge pattern",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1}]->(b:Person {name: \"Bob\"}), (a)-[:REL {w: 2}]->(c:Person {name: \"Carol\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"})-[:REL {w: 2}]->(p:Person) RETURN p.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Carol"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MATCH relationship inline property map filters edge variable pattern",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[r1:REL {w: 1}]->(b:Person {name: \"Bob\"}), (a)-[r2:REL {w: 2}]->(c:Person {name: \"Carol\"})"
+  ],
+  "query": "MATCH (a:Person {name: \"Alice\"})-[r:REL {w: 1}]->(p:Person) RETURN p.name, r.w",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE reverse direction relationship",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})<-[:FOLLOWS]-(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (b:Person)-[:FOLLOWS]->(a:Person) RETURN b.name, a.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     },
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE fails on non-property value and avoids partial node creation #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (p:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (c:Copy) RETURN count(c)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: SET replace map on edge fails fast on non-property value #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1}]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) RETURN r.w",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: SET replace map on edge fails fast on non-property value #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:Person {name: \"Alice\"})-[:REL {w: 1}]->(b:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (a)-[r:REL]->(b) WHERE r.owner IS NOT NULL RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WITH pass-through variable remains bound",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})",
+   "CREATE (n:Person {name: \"Bob\"})"
+  ],
+  "query": "MATCH (n:Person) WITH n RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WITH alias is visible in same-clause WHERE",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 31})",
+   "CREATE (n:Person {name: \"Bob\", age: 24})",
+   "CREATE (n:Person {name: \"Carol\", age: 35})"
+  ],
+  "query": "MATCH (n:Person) WITH n AS p WHERE p.age >= 30 RETURN count(p)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WITH drops variables not projected forward",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) WITH n.name AS name RETURN n",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: SET replace fails fast on non-property value and preserves existing properties #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", city: \"NYC\"})"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.name, n.city",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     },
+     {
+      "type": "String",
+      "value": "NYC"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: SET merge fails fast on non-property value and preserves row state #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) RETURN n.age",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 30
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: SET merge fails fast on non-property value and preserves row state #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})"
+  ],
+  "query": "MATCH (n:Person {name: \"Alice\"}) WHERE n.self IS NOT NULL RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: MERGE fails on non-property pattern value and does not create partial node #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (p:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (m:Mirror) RETURN count(m)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: create graph, query with ORDER BY and LIMIT",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})",
+   "CREATE (n:Person {name: \"Bob\", age: 25})",
+   "CREATE (n:Person {name: \"Carol\", age: 35})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name ORDER BY n.age LIMIT 2",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: ORDER BY supports non-returned keys with SKIP and LIMIT",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 20})",
+   "CREATE (n:Person {name: \"Bob\", age: 30})",
+   "CREATE (n:Person {name: \"Carol\", age: 40})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name ORDER BY n.age SKIP 1 LIMIT 1",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: LIMIT supports arithmetic expression",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-014",
+  "note": "LIMIT takes an Int literal or a parameter",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 30})",
+   "CREATE (n:Person {name: \"Bob\", age: 25})",
+   "CREATE (n:Person {name: \"Carol\", age: 35})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name ORDER BY n.age LIMIT 1 + 1",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "query: SKIP and LIMIT support parameters",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", age: 20})",
+   "CREATE (n:Person {name: \"Bob\", age: 30})",
+   "CREATE (n:Person {name: \"Carol\", age: 40})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.name ORDER BY n.age SKIP $skip LIMIT $limit",
+  "params": {
+   "skip": {
+    "type": "Int",
+    "value": 1
+   },
+   "limit": {
+    "type": "Int",
+    "value": 1
+   }
+  },
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Bob"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: RETURN DISTINCT distinguishes long shared-prefix strings",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax\"})",
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay\"})"
+  ],
+  "query": "MATCH (n:Doc) RETURN DISTINCT n.name ORDER BY n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax"
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay"
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: GROUP BY and COUNT DISTINCT separate long shared-prefix strings",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax\"})",
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay\"})"
+  ],
+  "query": "MATCH (n:Doc) RETURN n.name, count(n) ORDER BY n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "String",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay"
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: GROUP BY and COUNT DISTINCT separate long shared-prefix strings #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax\"})",
+   "CREATE (:Doc {name: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaay\"})"
+  ],
+  "query": "MATCH (n:Doc) RETURN count(DISTINCT n.name)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: full lifecycle - create, read, update, delete",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Task {title: \"Write tests\", status: \"todo\"})"
+  ],
+  "query": "MATCH (n:Task {title: \"Write tests\"}) RETURN n.status",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "todo"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: vector distance works inside generic WHERE predicate",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-016",
+  "note": "search operators run with their indexes, after this version",
+  "setup": [
+   "CREATE (:Document {title: \"Neural Networks\"})",
+   "CREATE (:Document {title: \"Deep Learning\"})"
+  ],
+  "query": "MATCH (d:Document) WHERE ([1.0, 0.0, 0.0, 0.0] <=> [1.0, 0.0, 0.0, 0.0]) = 0.0 RETURN d.title",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "query: full-text operator works in generic WHERE predicate",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-016",
+  "note": "search operators run with their indexes, after this version",
+  "setup": [
+   "CREATE (d:Doc {title: \"Graph Databases\", content: \"Graph databases store data as nodes and edges\"})",
+   "CREATE (d:Doc {title: \"Relational Databases\", content: \"Relational databases use tables and SQL\"})"
+  ],
+  "query": "MATCH (d:Doc) WHERE \"Graph databases store data\" @@ \"graph databases\" RETURN d.title",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "query: WHERE with comparison operators",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Product {name: \"A\", price: 10})",
+   "CREATE (n:Product {name: \"B\", price: 20})",
+   "CREATE (n:Product {name: \"C\", price: 30})"
+  ],
+  "query": "MATCH (n:Product) WHERE n.price > 15 RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WHERE with comparison operators #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Product {name: \"A\", price: 10})",
+   "CREATE (n:Product {name: \"B\", price: 20})",
+   "CREATE (n:Product {name: \"C\", price: 30})"
+  ],
+  "query": "MATCH (n:Product) WHERE n.price <= 20 RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WHERE with comparison operators #3",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Product {name: \"A\", price: 10})",
+   "CREATE (n:Product {name: \"B\", price: 20})",
+   "CREATE (n:Product {name: \"C\", price: 30})"
+  ],
+  "query": "MATCH (n:Product) WHERE n.price = 20 RETURN n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "B"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: incompatible > and >= comparisons evaluate to null (no panic)",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) WHERE n.name > 10 RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: incompatible > and >= comparisons evaluate to null (no panic) #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\"})"
+  ],
+  "query": "MATCH (n:Person) WHERE n.name >= 10 RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: WHERE with string matching",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {name: \"Alice\", city: \"New York\"})",
+   "CREATE (n:Person {name: \"Bob\", city: \"Boston\"})"
+  ],
+  "query": "MATCH (n:Person) WHERE n.city = \"New York\" RETURN n.name",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "String",
+      "value": "Alice"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE then immediately query same label",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Ephemeral {val: 42})"
+  ],
+  "query": "MATCH (n:Ephemeral) RETURN n.val",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 42
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: CREATE many nodes then count",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Item {idx: 0})",
+   "CREATE (n:Item {idx: 1})",
+   "CREATE (n:Item {idx: 2})",
+   "CREATE (n:Item {idx: 3})",
+   "CREATE (n:Item {idx: 4})",
+   "CREATE (n:Item {idx: 5})",
+   "CREATE (n:Item {idx: 6})",
+   "CREATE (n:Item {idx: 7})",
+   "CREATE (n:Item {idx: 8})",
+   "CREATE (n:Item {idx: 9})",
+   "CREATE (n:Item {idx: 10})",
+   "CREATE (n:Item {idx: 11})",
+   "CREATE (n:Item {idx: 12})",
+   "CREATE (n:Item {idx: 13})",
+   "CREATE (n:Item {idx: 14})",
+   "CREATE (n:Item {idx: 15})",
+   "CREATE (n:Item {idx: 16})",
+   "CREATE (n:Item {idx: 17})",
+   "CREATE (n:Item {idx: 18})",
+   "CREATE (n:Item {idx: 19})",
+   "CREATE (n:Item {idx: 20})",
+   "CREATE (n:Item {idx: 21})",
+   "CREATE (n:Item {idx: 22})",
+   "CREATE (n:Item {idx: 23})",
+   "CREATE (n:Item {idx: 24})",
+   "CREATE (n:Item {idx: 25})",
+   "CREATE (n:Item {idx: 26})",
+   "CREATE (n:Item {idx: 27})",
+   "CREATE (n:Item {idx: 28})",
+   "CREATE (n:Item {idx: 29})",
+   "CREATE (n:Item {idx: 30})",
+   "CREATE (n:Item {idx: 31})",
+   "CREATE (n:Item {idx: 32})",
+   "CREATE (n:Item {idx: 33})",
+   "CREATE (n:Item {idx: 34})",
+   "CREATE (n:Item {idx: 35})",
+   "CREATE (n:Item {idx: 36})",
+   "CREATE (n:Item {idx: 37})",
+   "CREATE (n:Item {idx: 38})",
+   "CREATE (n:Item {idx: 39})",
+   "CREATE (n:Item {idx: 40})",
+   "CREATE (n:Item {idx: 41})",
+   "CREATE (n:Item {idx: 42})",
+   "CREATE (n:Item {idx: 43})",
+   "CREATE (n:Item {idx: 44})",
+   "CREATE (n:Item {idx: 45})",
+   "CREATE (n:Item {idx: 46})",
+   "CREATE (n:Item {idx: 47})",
+   "CREATE (n:Item {idx: 48})",
+   "CREATE (n:Item {idx: 49})"
+  ],
+  "query": "MATCH (n:Item) RETURN count(n)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 50
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: UNWIND binds output variable for RETURN",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Seed {id: 1})"
+  ],
+  "query": "MATCH (n:Seed) UNWIND [1, 2, 3] AS x RETURN x ORDER BY x",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: UNWIND variable is usable in downstream WHERE",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "WHERE follows MATCH, OPTIONAL MATCH, WITH or CALL only",
+  "setup": [
+   "CREATE (n:Seed {id: 1})"
+  ],
+  "query": "MATCH (n:Seed) UNWIND [1, 2, 3] AS x WHERE x >= 2 RETURN x ORDER BY x",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "query: standalone UNWIND without MATCH produces rows",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "UNWIND [1, 2, 3] AS x RETURN x ORDER BY x",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: standalone UNWIND supports list parameter",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "UNWIND $vals AS x RETURN x ORDER BY x",
+  "params": {
+   "vals": {
+    "type": "List",
+    "value": [
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   }
+  },
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": true
+  }
+ },
+ {
+  "name": "query: RETURN alias controls output column name",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (n:Person {metadata: {city: \"Portland\"}})"
+  ],
+  "query": "MATCH (n:Person) RETURN n.metadata AS metadata",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Map",
+      "value": {
+       "city": {
+        "type": "String",
+        "value": "Portland"
+       }
+      }
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "metadata"
+   ]
+  }
+ },
+ {
+  "name": "query: simple MATCH RETURN",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person)",
+   "CREATE (:Person)",
+   "CREATE (:Company)"
+  ],
+  "query": "MATCH (n:Person) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "query: parse error",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n RETURN n",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "query: semantic error",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n) RETURN m",
+  "expect": {
+   "error": "QUERY_SEMANTIC"
+  }
+ },
+ {
+  "name": "parser: syntax error gives error",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n RETURN n",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "c_api: prepare and execute query",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person)",
+   "CREATE (:Person)",
+   "CREATE (:Company)"
+  ],
+  "query": "MATCH (n:Person) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Person"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "c_api: prepared query copies and replaces string parameters",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {name: 'Alice', age: 30})",
+   "CREATE (:Person {name: 'Bob', age: 25})"
+  ],
+  "query": "MATCH (n:Person) WHERE n.name = $name RETURN n.age",
+  "params": {
+   "name": {
+    "type": "String",
+    "value": "Alice"
+   }
+  },
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 30
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "c_api: prepared query copies and replaces string parameters #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Person {name: 'Alice', age: 30})",
+   "CREATE (:Person {name: 'Bob', age: 25})"
+  ],
+  "query": "MATCH (n:Person) WHERE n.name = $name RETURN n.age",
+  "params": {
+   "name": {
+    "type": "String",
+    "value": "Bob"
+   }
+  },
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 25
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "c_api: nested values round-trip on input and output",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Thing {tags: ['alpha', 7]})"
+  ],
+  "query": "MATCH (n) RETURN $vals",
+  "params": {
+   "vals": {
+    "type": "List",
+    "value": [
+     {
+      "type": "String",
+      "value": "alpha"
+     },
+     {
+      "type": "Int",
+      "value": 7
+     }
+    ]
+   }
+  },
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "String",
+        "value": "alpha"
+       },
+       {
+        "type": "Int",
+        "value": 7
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "c_api: nested values round-trip on input and output #2",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Thing {tags: ['alpha', 7]})"
+  ],
+  "query": "MATCH (n:Thing) RETURN n.tags",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "List",
+      "value": [
+       {
+        "type": "String",
+        "value": "alpha"
+       },
+       {
+        "type": "Int",
+        "value": 7
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "c_api: query with invalid syntax returns error",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [],
+  "query": "MATCH (n RETURN n",
+  "expect": {
+   "error": "QUERY_PARSE"
+  }
+ },
+ {
+  "name": "c_api: semantic query error diagnostics include code and location",
+  "source": "reference",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "QUERY_UNSUPPORTED names the construction",
+  "setup": [],
+  "query": "MATCH (a)-[r:REL*1..2]->(b) RETURN r",
+  "expect": {
+   "error": "QUERY_UNSUPPORTED"
+  }
+ },
+ {
+  "name": "c_api: result set iteration and cleanup",
+  "source": "reference",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:Item)",
+   "CREATE (:Item)",
+   "CREATE (:Item)",
+   "CREATE (:Item)",
+   "CREATE (:Item)"
+  ],
+  "query": "MATCH (n:Item) RETURN n",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ],
+    [
+     {
+      "labels": [
+       "Item"
+      ],
+      "properties": {},
+      "type": "Node"
+     }
+    ]
+   ],
+   "ordered": false
+  }
+ },
+ {
+  "name": "tacdb: relationships of a clause are distinct",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference lets r and s be the same edge",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(b:N {k: 2})"
+  ],
+  "query": "MATCH (x)-[r]-(y), (x)-[s]-(y) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: relationships of different clauses may repeat",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(b:N {k: 2})"
+  ],
+  "query": "MATCH (x)-[r]-(y) MATCH (x)-[s]-(y) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: an undirected self-loop matches once",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference matches it twice",
+  "setup": [
+   "CREATE (a:N)-[:R]->(a)"
+  ],
+  "query": "MATCH (a)-[r]-(b) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a variable repeated in a pattern is the same node",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference refuses the repeated variable",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(a), (a)-[:R]->(b:N {k: 2})"
+  ],
+  "query": "MATCH (a)-[:R]->(a) RETURN a.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "a.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a bound variable in a later MATCH is an ExpandInto",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference refuses the bound variable",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(b:N {k: 2}), (a)-[:R]->(b), (b)-[:R]->(a)"
+  ],
+  "query": "MATCH (a {k: 1}), (b {k: 2}) MATCH (a)-[r:R]->(b) RETURN count(r)",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "count(r)"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: variable length counts each path of distinct edges",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference keeps the first discovery of each node",
+  "setup": [
+   "CREATE (a:S)-[:R]->(b:T), (a)-[:R]->(b), (b)-[:R]->(c:T)"
+  ],
+  "query": "MATCH (:S)-[:R*1..2]->(t) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 4
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a zero-length path binds the start",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:S {k: 1})-[:R]->(b {k: 2})"
+  ],
+  "query": "MATCH (s:S)-[*0..1]->(t) RETURN t.k ORDER BY t.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "t.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a variable-length cycle never reuses an edge",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (a:S {k: 1})-[:R]->(b {k: 2}), (b)-[:R]->(a)"
+  ],
+  "query": "MATCH (s:S)-[*]->(t) RETURN t.k ORDER BY t.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "t.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: type alternation with a variable length",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "the reference refuses alternation",
+  "setup": [
+   "CREATE (a:S)-[:R]->(b {k: 2}), (b)-[:Q]->(c {k: 3}), (c)-[:X]->(d {k: 4})"
+  ],
+  "query": "MATCH (:S)-[:R|Q*]->(t) RETURN t.k ORDER BY t.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 3
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "t.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a null property in a pattern map matches an absent one",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:N {k: 1}), (:N)"
+  ],
+  "query": "MATCH (n:N {k: null}) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: an unknown label matches nothing",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:N)"
+  ],
+  "query": "MATCH (n:Unknown) RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: an ID seek and a filter on the ID",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:N {k: 1}), (:N {k: 2})"
+  ],
+  "query": "MATCH (n) WHERE id(n) = 2 AND n.k > 0 RETURN n.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "n.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: optional match keeps the rows without a match",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "OPTIONAL MATCH is not in the reference",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(b:M {k: 2}), (:N {k: 3})"
+  ],
+  "query": "MATCH (n:N) OPTIONAL MATCH (n)-[:R]->(m) RETURN n.k, m.k ORDER BY n.k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 3
+     },
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "n.k",
+    "m.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: the WHERE of an optional match stays inside it",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "OPTIONAL MATCH is not in the reference",
+  "setup": [
+   "CREATE (a:N {k: 1})-[:R]->(b:M {k: 2})"
+  ],
+  "query": "MATCH (n:N) OPTIONAL MATCH (n)-[:R]->(m) WHERE m.k > 5 RETURN n.k, m",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "n.k",
+    "m"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: an expansion from a null node yields nothing",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "OPTIONAL MATCH is not in the reference",
+  "setup": [
+   "CREATE (:N {k: 1})"
+  ],
+  "query": "MATCH (n:N) OPTIONAL MATCH (n)-[:R]->(m) OPTIONAL MATCH (m)-[:R]->(o) RETURN n.k, m, o",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     },
+     {
+      "type": "Null"
+     },
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "n.k",
+    "m",
+    "o"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: UNWIND of null gives no row",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference gives one row",
+  "setup": [],
+  "query": "UNWIND null AS x RETURN count(*) AS c",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 0
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "c"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: UNWIND of a scalar gives one row",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [],
+  "query": "UNWIND 5 AS x RETURN x",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 5
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "x"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: the WHERE of a WITH filters after its LIMIT",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-015",
+  "note": "the reference applies clauses in written order",
+  "setup": [
+   "CREATE (:N {k: 1}), (:N {k: 2}), (:N {k: 3})"
+  ],
+  "query": "MATCH (n:N) WITH n.k AS k ORDER BY k LIMIT 2 WHERE k > 1 RETURN k",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: null sorts last ascending and first descending",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "the reference treats incomparable values as equal",
+  "setup": [
+   "CREATE (:N {k: 2}), (:N), (:N {k: 1})"
+  ],
+  "query": "MATCH (n:N) RETURN n.k ORDER BY n.k DESC",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Null"
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 2
+     }
+    ],
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "n.k"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: ORDER BY with SKIP and LIMIT keeps the order of ties",
+  "source": "tacdb",
+  "kind": "parity",
+  "setup": [
+   "CREATE (:N {k: 1, i: 1}), (:N {k: 1, i: 2}), (:N {k: 0, i: 3})"
+  ],
+  "query": "MATCH (n:N) RETURN n.i ORDER BY n.k SKIP 1 LIMIT 1",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": true,
+   "columns": [
+    "n.i"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: DISTINCT uses the codec of equality",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-013",
+  "note": "the reference keeps 1 and 1.0 apart",
+  "setup": [],
+  "query": "UNWIND [1, 1.0, -0.0, 0, null, null] AS x RETURN DISTINCT x",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ],
+    [
+     {
+      "type": "Float",
+      "value": "0x8000000000000000"
+     }
+    ],
+    [
+     {
+      "type": "Null"
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "x"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: entities are materialized in results",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-016",
+  "note": "the reference returns IDs",
+  "setup": [
+   "CREATE (a:N:M {k: 1})-[:R {w: 2}]->(b:N)"
+  ],
+  "query": "MATCH (a:M)-[r]->(b) RETURN a, r, collect(b) AS bs",
+  "expect": {
+   "rows": [
+    [
+     {
+      "labels": [
+       "N",
+       "M"
+      ],
+      "properties": {
+       "k": {
+        "type": "Int",
+        "value": 1
+       }
+      },
+      "type": "Node"
+     },
+     {
+      "edgeType": "R",
+      "properties": {
+       "w": {
+        "type": "Int",
+        "value": 2
+       }
+      },
+      "type": "Edge"
+     },
+     {
+      "type": "List",
+      "value": [
+       {
+        "labels": [
+         "N"
+        ],
+        "properties": {},
+        "type": "Node"
+       }
+      ]
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "a",
+    "r",
+    "bs"
+   ]
+  }
+ },
+ {
+  "name": "tacdb: a column without alias is named by its text",
+  "source": "tacdb",
+  "kind": "divergence",
+  "decision": "D-010",
+  "note": "the reference names it by the slot",
+  "setup": [
+   "CREATE (:N {k: 1})"
+  ],
+  "query": "MATCH (n:N) RETURN n.k  +  1, count( * )",
+  "expect": {
+   "rows": [
+    [
+     {
+      "type": "Int",
+      "value": 2
+     },
+     {
+      "type": "Int",
+      "value": 1
+     }
+    ]
+   ],
+   "ordered": false,
+   "columns": [
+    "n.k + 1",
+    "count( * )"
+   ]
+  }
+ }
+]
